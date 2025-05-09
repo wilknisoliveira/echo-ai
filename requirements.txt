@@ -1,0 +1,14 @@
+dotenv
+marshmallow
+pydantic
+pandas
+requests
+numpy
+pytz
+
+langchain_google_genai
+langchain-community
+langchain_core
+langchain_text_splitters
+langgraph
+tavily-python
