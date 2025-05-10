@@ -1,15 +1,14 @@
 from langchain_core.messages import ToolMessage
+from langgraph.graph.state import CompiledStateGraph
 
-from echo_ai_agent.primary_graph import graph
 from echo_ai_agent.utils.utilities import print_event
 
 
 class TerminalInterface:
-    def __init__(self):
-        pass
+    def __init__(self, graph: CompiledStateGraph):
+        self.graph: CompiledStateGraph = graph
 
-    @staticmethod
-    def initialize_terminal(thread_id: str) -> None:
+    def initialize_terminal(self, thread_id: str) -> None:
         config = {
             "configurable": {
                 "thread_id": thread_id
@@ -25,7 +24,7 @@ class TerminalInterface:
                 print("See you!")
                 break
 
-            events = graph.stream(
+            events = self.graph.stream(
                 {"messages": ("user", question)},
                 config,
                 stream_mode="values"
@@ -33,7 +32,7 @@ class TerminalInterface:
             for event in events:
                 print_event(event, _printed)
 
-            snapshot = graph.get_state(config)
+            snapshot = self.graph.get_state(config)
             while snapshot.next:
                 try:
                     user_input = input(
@@ -45,12 +44,12 @@ class TerminalInterface:
 
                 if user_input.strip() == "y":
                     # Continue
-                    graph.invoke(
+                    self.graph.invoke(
                         None,
                         config
                     )
                 else:
-                    graph.invoke(
+                    self.graph.invoke(
                         {
                             "messages": [
                                 ToolMessage(
@@ -61,4 +60,4 @@ class TerminalInterface:
                         },
                         config
                     )
-                snapshot = graph.get_state(config)
+                snapshot = self.graph.get_state(config)
