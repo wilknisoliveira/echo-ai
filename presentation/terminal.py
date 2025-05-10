@@ -45,12 +45,12 @@ class TerminalInterface:
 
                 if user_input.strip() == "y":
                     # Continue
-                    result = graph.invoke(
+                    graph.invoke(
                         None,
                         config
                     )
                 else:
-                    result = graph.invoke(
+                    graph.invoke(
                         {
                             "messages": [
                                 ToolMessage(

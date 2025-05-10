@@ -1,11 +1,9 @@
 import os
 from typing import Literal, Final
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import tools_condition
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from psycopg_pool import ConnectionPool
 
@@ -13,6 +11,7 @@ from echo_ai_agent.primary_agent import assistant_runnable, primary_assistant_to
 from echo_ai_agent.utils.agent import Agent
 from echo_ai_agent.utils.state import State, pop_dialog_state, LEAVE_SKILL
 from echo_ai_agent.utils.utilities import create_tool_node_with_fallback
+from infra.db import DBConnectionHandler
 
 PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
 PRIMARY_ASSISTANT: Final = "primary_assistant"
@@ -66,20 +65,9 @@ builder.add_conditional_edges(
 )
 builder.add_edge(PRIMARY_ASSISTANT_TOOLS, PRIMARY_ASSISTANT)
 
-pool = ConnectionPool(
-    conninfo=DB_URI,
-    min_size=5,
-    max_size=20,
-    timeout=30
-)
+db = DBConnectionHandler()
 
-with pool.connection() as conn:
-    conn.autocommit = True
-    short_term_memory = PostgresSaver(conn)
-    short_term_memory.setup()
-
-short_term_memory = PostgresSaver(pool)
-
+short_term_memory = db.get_db_connection()
 graph = builder.compile(
     checkpointer=short_term_memory
 )
