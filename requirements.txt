@@ -5,10 +5,15 @@ pandas
 requests
 numpy
 pytz
+psycopg[binary]
+psycopg-pool
 
 langchain_google_genai
 langchain-community
 langchain_core
 langchain_text_splitters
+
 langgraph
+langgraph-checkpoint-postgres
+
 tavily-python

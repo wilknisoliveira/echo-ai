@@ -1,4 +1,3 @@
-import uuid
 from dotenv import load_dotenv
 from langchain_core.messages import ToolMessage
 
@@ -8,7 +7,7 @@ from echo_ai_agent.primary_graph import graph
 from echo_ai_agent.utils.utilities import print_event
 
 if __name__ == '__main__':
-    thread_id = str(uuid.uuid4())
+    thread_id = "main_short_term_memory"
 
     config = {
         "configurable": {

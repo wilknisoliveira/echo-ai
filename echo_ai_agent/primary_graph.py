@@ -1,9 +1,13 @@
+import os
 from typing import Literal, Final
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import tools_condition
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from psycopg_pool import ConnectionPool
 
 from echo_ai_agent.primary_agent import assistant_runnable, primary_assistant_tools
 from echo_ai_agent.utils.agent import Agent
@@ -12,6 +16,7 @@ from echo_ai_agent.utils.utilities import create_tool_node_with_fallback
 
 PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
 PRIMARY_ASSISTANT: Final = "primary_assistant"
+DB_URI = os.environ["DB_URI"]
 
 def route_primary_assistant(state: State):
     route = tools_condition(state)
@@ -61,9 +66,22 @@ builder.add_conditional_edges(
 )
 builder.add_edge(PRIMARY_ASSISTANT_TOOLS, PRIMARY_ASSISTANT)
 
-memory = MemorySaver()
+pool = ConnectionPool(
+    conninfo=DB_URI,
+    min_size=5,
+    max_size=20,
+    timeout=30
+)
+
+with pool.connection() as conn:
+    conn.autocommit = True
+    short_term_memory = PostgresSaver(conn)
+    short_term_memory.setup()
+
+short_term_memory = PostgresSaver(pool)
+
 graph = builder.compile(
-    checkpointer=memory
+    checkpointer=short_term_memory
 )
 
 print("Graph Mermaid Code")
