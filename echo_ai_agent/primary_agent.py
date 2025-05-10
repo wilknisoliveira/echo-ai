@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.runnables import RunnableSerializable
 
-from echo_ai_agent.utils.agent import llm
+from infra.llm_model import LLMModel
 
 
 class PrimaryAgent:
@@ -24,6 +24,7 @@ class PrimaryAgent:
     )
 
     def __init__(self):
+        self.llm_model = LLMModel()
         self.primary_assistant_tools: list = self.__build_tools()
         self.assistant_runnable: RunnableSerializable = self.__build_assistant_runnable()
 
@@ -45,6 +46,6 @@ class PrimaryAgent:
             ]
         ).partial(time=datetime.now)
 
-        return primary_assistant_prompt | llm.bind_tools(
+        return primary_assistant_prompt | self.llm_model.llm.bind_tools(
             self.primary_assistant_tools
         )

@@ -7,7 +7,7 @@ from langgraph.prebuilt import tools_condition
 from echo_ai_agent.primary_agent import PrimaryAgent
 from echo_ai_agent.utils.agent import Agent
 from echo_ai_agent.utils.state import State, pop_dialog_state, LEAVE_SKILL
-from echo_ai_agent.utils.utilities import create_tool_node_with_fallback
+from echo_ai_agent.utils.node_manager import NodeManager
 from infra.db import DBConnectionHandler
 
 class PrimaryGraph:
@@ -18,6 +18,7 @@ class PrimaryGraph:
         self.db: DBConnectionHandler = db
         self.builder = StateGraph(State)
         self.primary_agent = PrimaryAgent()
+        self.node_manager = NodeManager()
         self.graph: CompiledStateGraph = self.__build()
 
     @staticmethod
@@ -57,7 +58,7 @@ class PrimaryGraph:
         self.builder.add_edge(LEAVE_SKILL, PrimaryGraph.PRIMARY_ASSISTANT)
 
         self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT, Agent(self.primary_agent.assistant_runnable))
-        self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, create_tool_node_with_fallback(self.primary_agent.primary_assistant_tools))
+        self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, self.node_manager.create_tool_node_with_fallback(self.primary_agent.primary_assistant_tools))
 
         # Use the custom instead of tools_condition
         self.builder.add_conditional_edges(

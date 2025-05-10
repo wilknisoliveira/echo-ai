@@ -1,12 +1,27 @@
 from langchain_core.messages import ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 
-from echo_ai_agent.utils.utilities import print_event
-
 
 class TerminalInterface:
     def __init__(self, graph: CompiledStateGraph):
         self.graph: CompiledStateGraph = graph
+
+    @staticmethod
+    def print_event(event: dict, _printed: set, max_length=1500):
+        current_state = event.get("dialog_state")
+        if current_state:
+            print("Currently in: ", current_state[-1])
+        message = event.get("messages")
+        if message:
+            if isinstance(message, list):
+                message = message[-1]
+            if message.id not in _printed:
+                msg_repr = message.pretty_repr(html=True)
+                if len(msg_repr) > max_length:
+                    msg_repr = msg_repr[:max_length] + "... (truncated)"
+                print(msg_repr)
+
+                _printed.add(message.id)
 
     def initialize_terminal(self, thread_id: str) -> None:
         config = {
@@ -30,7 +45,7 @@ class TerminalInterface:
                 stream_mode="values"
             )
             for event in events:
-                print_event(event, _printed)
+                self.print_event(event, _printed)
 
             snapshot = self.graph.get_state(config)
             while snapshot.next:

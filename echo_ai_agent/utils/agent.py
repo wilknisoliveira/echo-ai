@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 
 from langchain_core.runnables import Runnable, RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from echo_ai_agent.utils.state import State
 
@@ -47,5 +46,3 @@ class CompleteOrEscalate(BaseModel):
                 "reason": "I need to search the user's emails or calendar for more information.",
             }
         }
-
-llm = ChatGoogleGenerativeAI(temperature=0.7, model="gemini-2.0-flash-001")
