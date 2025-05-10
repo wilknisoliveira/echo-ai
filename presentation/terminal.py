@@ -7,7 +7,7 @@ class TerminalInterface:
         self.graph: CompiledStateGraph = graph
 
     @staticmethod
-    def print_event(event: dict, _printed: set, max_length=1500):
+    def print_event(event: dict, _printed: set, max_length=3000):
         current_state = event.get("dialog_state")
         if current_state:
             print("Currently in: ", current_state[-1])
