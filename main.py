@@ -1,8 +1,10 @@
 from dotenv import load_dotenv
+
+from presentation.web.web_interface import WebInterface
+
 load_dotenv()
 
 from echo_ai_agent.primary_graph import PrimaryGraph
-
 from presentation.terminal import TerminalInterface
 from infra.db import DBConnectionHandler
 
@@ -26,7 +28,10 @@ if __name__ == '__main__':
         print("--------END---------")
         print("\n")
 
+    web_interface = WebInterface(primary_graph.graph, THREAD_ID)
+    web_interface.build_interface()
+
     # Initialize Terminal Interface
-    terminal = TerminalInterface(primary_graph.graph)
-    terminal.initialize_terminal(THREAD_ID)
+    #terminal = TerminalInterface(primary_graph.graph)
+    #terminal.initialize_terminal(THREAD_ID)
 
