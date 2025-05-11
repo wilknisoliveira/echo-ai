@@ -1,4 +1,6 @@
 from dotenv import load_dotenv
+from langgraph.graph.state import CompiledStateGraph
+from streamlit import cache_resource
 
 from presentation.web.web_interface import WebInterface
 
@@ -10,7 +12,8 @@ from infra.db import DBConnectionHandler
 
 THREAD_ID = "main_short_term_memory"
 
-if __name__ == '__main__':
+@cache_resource
+def initialize_system() -> CompiledStateGraph:
     # Initialize db connection
     db = DBConnectionHandler()
     db.initialize_db()
@@ -28,7 +31,12 @@ if __name__ == '__main__':
         print("--------END---------")
         print("\n")
 
-    web_interface = WebInterface(primary_graph.graph, THREAD_ID)
+    return primary_graph.graph
+
+if __name__ == '__main__':
+    graph = initialize_system()
+
+    web_interface = WebInterface(graph, THREAD_ID)
     web_interface.build_interface()
 
     # Initialize Terminal Interface
