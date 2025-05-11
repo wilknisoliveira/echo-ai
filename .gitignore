@@ -175,3 +175,6 @@ cython_debug/
 
 # IDEA
 .idea
+
+# Docker compose
+docker-compose.yml
