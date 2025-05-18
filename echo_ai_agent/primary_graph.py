@@ -1,18 +1,23 @@
 from typing import Literal, Final
 
+from langchain_core.messages.utils import count_tokens_approximately
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import tools_condition
+from langmem.short_term import SummarizationNode
 
 from echo_ai_agent.primary_agent import PrimaryAgent
 from echo_ai_agent.utils.agent import Agent
 from echo_ai_agent.utils.state import State, DialogManager
 from echo_ai_agent.utils.node_manager import NodeManager
+from infra.llm_model import LLMModel
 from infra.db import DBConnectionHandler
+
 
 class PrimaryGraph:
     PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
     PRIMARY_ASSISTANT: Final = "primary_assistant"
+    SUMMARIZE = "summarize"
 
     def __init__(self, db: DBConnectionHandler):
         self.db: DBConnectionHandler = db
@@ -50,18 +55,24 @@ class PrimaryGraph:
         return dialog_state[-1]
 
     def __build(self) -> CompiledStateGraph:
-        # Get the user info at begging
-        self.builder.add_edge(START, PrimaryGraph.PRIMARY_ASSISTANT)
+        summarization_node = SummarizationNode(
+            token_counter=count_tokens_approximately,
+            model=LLMModel(max_tokens=2000).llm,
+            max_tokens=10000,
+            max_summary_tokens=3000,
+            output_messages_key="messages"
+        )
 
-        # Add here the Subgraph
-
-        self.builder.add_node(DialogManager.LEAVE_SKILL, DialogManager.pop_dialog_state)
-        self.builder.add_edge(DialogManager.LEAVE_SKILL, PrimaryGraph.PRIMARY_ASSISTANT)
-
+        self.builder.add_node(PrimaryGraph.SUMMARIZE, summarization_node)
         self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT, Agent(self.primary_agent.assistant_runnable))
-        self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, self.node_manager.create_tool_node_with_fallback(self.primary_agent.primary_assistant_tools))
+        self.builder.add_node(
+            PrimaryGraph.PRIMARY_ASSISTANT_TOOLS,
+            self.node_manager.create_tool_node_with_fallback(self.primary_agent.primary_assistant_tools)
+        )
+        self.builder.add_node(DialogManager.LEAVE_SKILL, DialogManager.pop_dialog_state)
 
-        # Use the custom instead of tools_condition
+        self.builder.add_edge(START, PrimaryGraph.SUMMARIZE)
+        self.builder.add_edge(PrimaryGraph.SUMMARIZE, PrimaryGraph.PRIMARY_ASSISTANT)
         self.builder.add_conditional_edges(
             PrimaryGraph.PRIMARY_ASSISTANT,
             self.__route_primary_assistant,
@@ -71,6 +82,7 @@ class PrimaryGraph:
             ],
         )
         self.builder.add_edge(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, PrimaryGraph.PRIMARY_ASSISTANT)
+        self.builder.add_edge(DialogManager.LEAVE_SKILL, PrimaryGraph.PRIMARY_ASSISTANT)
 
         short_term_memory = self.db.get_db_connection()
         return self.builder.compile(

@@ -1,6 +1,7 @@
 from langchain_core.messages import ToolMessage
-from typing_extensions import TypedDict, Literal
-from typing import Annotated, Optional
+from langgraph.graph import MessagesState
+from typing_extensions import Literal
+from typing import Annotated, Optional, Any
 
 from langgraph.graph.message import AnyMessage, add_messages
 
@@ -36,10 +37,8 @@ class DialogManager:
             "messages": messages
         }
 
-# User info is used to pass custom params, as user confirmation or passenger_id
-class State(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
-    user_info: str
+class State(MessagesState):
+    context: dict[str, Any]
     dialog_state: Annotated[
         list[
             Literal[

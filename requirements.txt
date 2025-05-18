@@ -12,9 +12,12 @@ langchain_google_genai
 langchain-community
 langchain_core
 langchain_text_splitters
+langchain
 
 langgraph
 langgraph-checkpoint-postgres
+
+langmem
 
 tavily-python
 
