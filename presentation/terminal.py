@@ -23,10 +23,11 @@ class TerminalInterface:
 
                 _printed.add(message.id)
 
-    def initialize_terminal(self, thread_id: str) -> None:
+    def initialize_terminal(self, thread_id: str, user_id: str) -> None:
         config = {
             "configurable": {
-                "thread_id": thread_id
+                "thread_id": thread_id,
+                "user_id": user_id
             }
         }
 

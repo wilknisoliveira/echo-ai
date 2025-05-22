@@ -57,9 +57,10 @@ class PrimaryGraph:
     def __build(self) -> CompiledStateGraph:
         summarization_node = SummarizationNode(
             token_counter=count_tokens_approximately,
-            model=LLMModel(max_tokens=2000).llm,
-            max_tokens=10000,
+            model=LLMModel(max_tokens=3000).llm,
             max_summary_tokens=3000,
+            max_tokens=10000,
+            max_tokens_before_summary=9500, # Less than max_tokens to avoid loss data
             output_messages_key="messages"
         )
 
@@ -84,9 +85,10 @@ class PrimaryGraph:
         self.builder.add_edge(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, PrimaryGraph.PRIMARY_ASSISTANT)
         self.builder.add_edge(DialogManager.LEAVE_SKILL, PrimaryGraph.PRIMARY_ASSISTANT)
 
-        short_term_memory = self.db.get_db_connection()
+        short_term_memory, long_term_memory = self.db.get_db_connection()
         return self.builder.compile(
-            checkpointer=short_term_memory
+            checkpointer=short_term_memory,
+            store=long_term_memory
         )
 
     def get_mermaid_graph_code(self) -> str:

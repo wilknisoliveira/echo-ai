@@ -1,3 +1,4 @@
+from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 
 from langchain_core.runnables import Runnable, RunnableConfig
@@ -8,9 +9,15 @@ class Agent:
     def __init__(self, runnable: Runnable):
         self.runnable = runnable
 
-    def __call__(self, state: State, config: RunnableConfig):
+    def __call__(
+        self,
+        state: State,
+        config: RunnableConfig,
+        *,
+        store: BaseStore
+    ):
         while True:
-            result = self.runnable.invoke(state)
+            result = self.runnable.invoke(state, store=store)
 
             # If the LLM happens to return an empty response, we will re-prompt it
             # for an actual response.
@@ -27,7 +34,7 @@ class Agent:
 
 class CompleteOrEscalate(BaseModel):
     """A tool to mark the current task as completed and/or to escalate control of the dialog to the main assistant,
-        who can re-route the dialog based on the user's needs."""
+        who can re-route the dialog as needed."""
     cancel: bool = True
     reason: str
 

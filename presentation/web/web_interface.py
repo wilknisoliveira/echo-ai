@@ -5,9 +5,10 @@ from langchain_core.messages import ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 
 class WebInterface:
-    def __init__(self, graph: CompiledStateGraph, thread_id: str):
+    def __init__(self, graph: CompiledStateGraph, thread_id: str, user_id: str):
         self.graph: CompiledStateGraph = graph
         self.thread_id: str = thread_id
+        self.user_id: str = user_id
 
     @staticmethod
     def __extract_content_from_event(event: dict) -> str | None:
@@ -68,7 +69,8 @@ class WebInterface:
 
                 config = {
                     "configurable": {
-                        "thread_id": self.thread_id
+                        "thread_id": self.thread_id,
+                        "user_id": self.user_id
                     }
                 }
 

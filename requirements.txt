@@ -5,7 +5,7 @@ pandas
 requests
 numpy
 pytz
-psycopg[binary]
+psycopg[binary,pool]
 psycopg-pool
 
 langchain_google_genai
