@@ -15,8 +15,8 @@ from infra.db import DBConnectionHandler
 
 THREAD_ID = "main_short_term_memory"
 USER_ID = "main_profile"
+IS_TERMINAL: bool = False
 
-@cache_resource
 def initialize_system() -> CompiledStateGraph:
     # Initialize db connection
     store_index = get_store_index()
@@ -38,13 +38,19 @@ def initialize_system() -> CompiledStateGraph:
 
     return primary_graph.graph
 
+@cache_resource
+def initialize_system_with_streamlit_cache() -> CompiledStateGraph:
+    return initialize_system()
+
 if __name__ == '__main__':
-    graph = initialize_system()
+    if IS_TERMINAL:
+        graph = initialize_system()
 
-    web_interface = WebInterface(graph, THREAD_ID, USER_ID)
-    web_interface.build_interface()
+        terminal = TerminalInterface(graph)
+        terminal.initialize_terminal(THREAD_ID, USER_ID)
+    else:
+        graph = initialize_system_with_streamlit_cache()
 
-    # Initialize Terminal Interface
-    # terminal = TerminalInterface(graph)
-    # terminal.initialize_terminal(THREAD_ID, USER_ID)
+        web_interface = WebInterface(graph, THREAD_ID, USER_ID)
+        web_interface.build_interface()
 

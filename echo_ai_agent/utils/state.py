@@ -3,7 +3,7 @@ from langgraph.graph import MessagesState
 from typing_extensions import Literal
 from typing import Annotated, Optional, Any
 
-from langgraph.graph.message import AnyMessage, add_messages
+from langgraph.graph.message import AnyMessage
 
 class DialogManager:
     LEAVE_SKILL = "leave_skill"
@@ -38,7 +38,8 @@ class DialogManager:
         }
 
 class State(MessagesState):
-    context: dict[str, Any]
+    context: dict[str, Any] # Keep info about the last summarization
+    messages_to_keep: list[AnyMessage]
     dialog_state: Annotated[
         list[
             Literal[

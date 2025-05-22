@@ -7,6 +7,7 @@ from langgraph.prebuilt import tools_condition
 from langmem.short_term import SummarizationNode
 
 from echo_ai_agent.primary_agent import PrimaryAgent
+from echo_ai_agent.tools.summarization_tool import select_messages_before_summarize, select_messages_after_summarize
 from echo_ai_agent.utils.agent import Agent
 from echo_ai_agent.utils.state import State, DialogManager
 from echo_ai_agent.utils.node_manager import NodeManager
@@ -17,6 +18,8 @@ from infra.db import DBConnectionHandler
 class PrimaryGraph:
     PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
     PRIMARY_ASSISTANT: Final = "primary_assistant"
+    SELECT_MESSAGES_BEFORE_SUMMARIZE = "select_messages_before_summarize"
+    SELECT_MESSAGES_AFTER_SUMMARIZE = "select_messages_after_summarize"
     SUMMARIZE = "summarize"
 
     def __init__(self, db: DBConnectionHandler):
@@ -64,7 +67,9 @@ class PrimaryGraph:
             output_messages_key="messages"
         )
 
+        self.builder.add_node(PrimaryGraph.SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
         self.builder.add_node(PrimaryGraph.SUMMARIZE, summarization_node)
+        self.builder.add_node(PrimaryGraph.SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
         self.builder.add_node(PrimaryGraph.PRIMARY_ASSISTANT, Agent(self.primary_agent.assistant_runnable))
         self.builder.add_node(
             PrimaryGraph.PRIMARY_ASSISTANT_TOOLS,
@@ -72,8 +77,10 @@ class PrimaryGraph:
         )
         self.builder.add_node(DialogManager.LEAVE_SKILL, DialogManager.pop_dialog_state)
 
-        self.builder.add_edge(START, PrimaryGraph.SUMMARIZE)
-        self.builder.add_edge(PrimaryGraph.SUMMARIZE, PrimaryGraph.PRIMARY_ASSISTANT)
+        self.builder.add_edge(START, PrimaryGraph.SELECT_MESSAGES_BEFORE_SUMMARIZE)
+        self.builder.add_edge(PrimaryGraph.SELECT_MESSAGES_BEFORE_SUMMARIZE, PrimaryGraph.SUMMARIZE)
+        self.builder.add_edge(PrimaryGraph.SUMMARIZE, PrimaryGraph.SELECT_MESSAGES_AFTER_SUMMARIZE)
+        self.builder.add_edge(PrimaryGraph.SELECT_MESSAGES_AFTER_SUMMARIZE, PrimaryGraph.PRIMARY_ASSISTANT)
         self.builder.add_conditional_edges(
             PrimaryGraph.PRIMARY_ASSISTANT,
             self.__route_primary_assistant,
