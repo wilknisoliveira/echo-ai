@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 
-from presentation.web.web_interface import WebInterface
+from interface.web_interface import WebInterface
 
 
 load_dotenv()

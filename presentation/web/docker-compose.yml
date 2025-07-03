@@ -2,8 +2,8 @@ services:
   echo:
     container_name: echo-interface
     image: echo-interface
-    build: ../..
+    build: .
     ports:
-      - "8502:8501"
+      - "8501:8501"
     environment:
       MASTER_KEY: ${MASTER_KEY}

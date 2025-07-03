@@ -1,7 +1,6 @@
 import os
 
 import streamlit as st
-from langchain_core.messages import ToolMessage
 
 class WebInterface:
     def __init__(self, thread_id: str, user_id: str):
@@ -85,10 +84,10 @@ class WebInterface:
                         self.graph.invoke(
                             {
                                 "messages": [
-                                    ToolMessage(
-                                        tool_call_id=snapshot.values["messages"][-1].tool_calls[0]["id"],
-                                        content=f"API call denied by user. Reasoning: '{prompt}'. Continue assisting, accounting for the user's input."
-                                    )
+                                    {
+                                        "tool_call_id": snapshot.values["messages"][-1].tool_calls[0]["id"],
+                                        "content": f"API call denied by user. Reasoning: '{prompt}'. Continue assisting, accounting for the user's input."
+                                    }
                                 ]
                             },
                             config
