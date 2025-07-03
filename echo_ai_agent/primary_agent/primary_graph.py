@@ -6,13 +6,12 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import tools_condition
 from langmem.short_term import SummarizationNode
 
-from echo_ai_agent.primary_agent import PrimaryAgent
-from echo_ai_agent.tools.summarization_tool import select_messages_before_summarize, select_messages_after_summarize
-from echo_ai_agent.utils.agent import Agent
-from echo_ai_agent.utils.state import State, DialogManager
-from echo_ai_agent.utils.node_manager import NodeManager
-from infra.llm_model import LLMModel
-from infra.db import DBConnectionHandler
+from primary_agent.primary_agent import PrimaryAgent
+from primary_agent.tools.summarization_tool import select_messages_before_summarize, select_messages_after_summarize
+from primary_agent.utils.agent import Agent
+from primary_agent.utils.state import State, DialogManager
+from primary_agent.utils.node_manager import NodeManager
+from primary_agent.utils.llm_model import LLMModel
 
 
 class PrimaryGraph:
@@ -22,8 +21,7 @@ class PrimaryGraph:
     SELECT_MESSAGES_AFTER_SUMMARIZE = "select_messages_after_summarize"
     SUMMARIZE = "summarize"
 
-    def __init__(self, db: DBConnectionHandler):
-        self.db: DBConnectionHandler = db
+    def __init__(self):
         self.builder = StateGraph(State)
         self.primary_agent = PrimaryAgent()
         self.node_manager = NodeManager()
@@ -92,11 +90,11 @@ class PrimaryGraph:
         self.builder.add_edge(PrimaryGraph.PRIMARY_ASSISTANT_TOOLS, PrimaryGraph.PRIMARY_ASSISTANT)
         self.builder.add_edge(DialogManager.LEAVE_SKILL, PrimaryGraph.PRIMARY_ASSISTANT)
 
-        short_term_memory, long_term_memory = self.db.get_db_connection()
-        return self.builder.compile(
-            checkpointer=short_term_memory,
-            store=long_term_memory
-        )
+        return self.builder.compile()
 
     def get_mermaid_graph_code(self) -> str:
         return self.graph.get_graph().draw_mermaid()
+
+
+primary_graph = PrimaryGraph()
+graph = primary_graph.graph

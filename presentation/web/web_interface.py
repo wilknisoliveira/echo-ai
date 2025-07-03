@@ -2,11 +2,9 @@ import os
 
 import streamlit as st
 from langchain_core.messages import ToolMessage
-from langgraph.graph.state import CompiledStateGraph
 
 class WebInterface:
-    def __init__(self, graph: CompiledStateGraph, thread_id: str, user_id: str):
-        self.graph: CompiledStateGraph = graph
+    def __init__(self, thread_id: str, user_id: str):
         self.thread_id: str = thread_id
         self.user_id: str = user_id
 

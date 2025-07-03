@@ -128,7 +128,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+echo_ai_agent/.env
 .venv
 env/
 venv/
@@ -175,3 +175,7 @@ cython_debug/
 
 # IDEA
 .idea
+
+# Langgraph files
+.langgraph_api
+echo.egg-info

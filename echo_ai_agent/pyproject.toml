@@ -1,0 +1,32 @@
+[project]
+# pip install -e .
+name = "echo"
+version = "0.0.1"
+description = "Echo"
+authors = [
+    {name = "Wilknis", email = "wilknissilva@gmail.com"}
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "langgraph",
+    "langchain",
+    "langchain_core",
+    "langgraph-cli[inmem]",
+    "langchain-google-genai",
+    "langmem",
+    "langchain_community"
+
+]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.11.1", "ruff>=0.6.1"]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["primary_agent"]
+package-dir = {"" = "."}

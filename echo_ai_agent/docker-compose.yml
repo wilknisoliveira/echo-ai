@@ -1,0 +1,29 @@
+volumes:
+    langgraph-data:
+        driver: local
+services:
+    langgraph-redis:
+        image: redis:6
+        healthcheck:
+            test: redis-cli ping
+            interval: 5s
+            timeout: 1s
+            retries: 5
+    langgraph-api:
+        build: .
+        ports:
+            - "8123:8000"
+        depends_on:
+            langgraph-redis:
+                condition: service_healthy
+        env_file:
+            - .env
+        environment:
+            REDIS_URI: redis://langgraph-redis:6379
+            POSTGRES_URI: ${POSTGRES_URI}
+            GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+            LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+            LANGSMITH_TRACING: ${LANGSMITH_TRACING}
+            LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT}
+            LANGSMITH_PROJECT: ${LANGSMITH_PROJECT}
+            TAVILY_API_KEY: ${TAVILY_API_KEY}

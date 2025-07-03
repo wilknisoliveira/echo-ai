@@ -5,9 +5,9 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.runnables import RunnableSerializable, RunnableConfig, RunnableLambda
 from langgraph.store.base import BaseStore
 
-from echo_ai_agent.tools.memory_tool import upsert_memory, prepare_memories
-from echo_ai_agent.utils.state import State
-from infra.llm_model import LLMModel
+from primary_agent.tools.memory_tool import upsert_memory, prepare_memories
+from primary_agent.utils.state import State
+from primary_agent.utils.llm_model import LLMModel
 
 
 class PrimaryAgent:

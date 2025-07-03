@@ -5,7 +5,7 @@ from langchain_core.runnables import RunnableLambda
 
 from langgraph.prebuilt import ToolNode
 
-from echo_ai_agent.utils.state import State
+from primary_agent.utils.state import State
 
 
 class NodeManager:

@@ -1,0 +1,14 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "graph": "primary_agent/primary_graph.py:graph"
+  },
+  "store": {
+    "index": {
+        "embed": "primary_agent/tools/memory_tool.py:_embeddings",
+        "dims": 768,
+        "fields": ["memory", "emotional_context", "my_thoughts"]
+    }
+  },
+  "env": ".env"
+}

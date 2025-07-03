@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from langchain_core.runnables import Runnable, RunnableConfig
 
-from echo_ai_agent.utils.state import State
+from primary_agent.utils.state import State
 
 class Agent:
     def __init__(self, runnable: Runnable):

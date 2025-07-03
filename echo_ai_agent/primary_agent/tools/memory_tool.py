@@ -98,12 +98,4 @@ that you consider as important.
 
     return f'{prompt}\n{memories}'
 
-def get_store_index():
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
-    embeddings_dim = len(embeddings.embed_query("text to get the embedding dimension output"))
-
-    return {
-        "embed": embeddings,
-        "dims": embeddings_dim,
-        "fields": ["memory", "emotional_context", "my_thoughts"]
-    }
+_embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
