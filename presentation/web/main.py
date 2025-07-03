@@ -5,7 +5,7 @@ from interface.web_interface import WebInterface
 
 load_dotenv()
 
-THREAD_ID = "main_short_term_memory"
+THREAD_ID = "429117eb-2230-429a-a0ec-76a84a5068ae"
 USER_ID = "main_profile"
 IS_TERMINAL: bool = False
 

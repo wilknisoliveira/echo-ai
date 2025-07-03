@@ -1,32 +1,40 @@
 import os
 
 import streamlit as st
+from langgraph_sdk import get_sync_client
 
 class WebInterface:
     def __init__(self, thread_id: str, user_id: str):
         self.thread_id: str = thread_id
         self.user_id: str = user_id
+        self.client = get_sync_client(url=os.environ.get("LANGGRAPH_API_URL"))
 
     @staticmethod
     def __extract_content_from_event(event: dict) -> str | None:
-        message = event.get("messages")
+        print('AQUI')
+        print(event.data)
+        message = event.data.get("messages")
         if message:
             if isinstance(message, list):
                 message = message[-1]
-            if not message.type == "human":
-                return message.content
+            if message['type'] == "ai": 
+                return message['content']
         return None
 
-    def __get_response(self, message: str, config: dict):
-        events = self.graph.stream(
-            {"messages": ("user", message)},
-            config,
-            stream_mode="values"
-        )
+    def __get_response(self, message: str, thread_id: str, config: dict):
+        chunks = self.client.runs.stream(
+            thread_id, "graph", 
+            input= {
+                "messages": [{
+                    "role": "human",
+                    "content": message
+                }]
+            }, 
+            stream_mode="values", config=config)
 
         complete_result = ''
-        for event in events:
-            result = self.__extract_content_from_event(event)
+        for chunk in chunks:
+            result = self.__extract_content_from_event(chunk)
             if result:
                 complete_result += result
 
@@ -66,11 +74,17 @@ class WebInterface:
 
                 config = {
                     "configurable": {
-                        "thread_id": self.thread_id,
                         "user_id": self.user_id
                     }
                 }
 
+                with st.chat_message("assistant"):
+                    response = self.__get_response(prompt, self.thread_id, config)
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+
+                # TODO: adapt to langgraph-sdk
+                """
                 snapshot = self.graph.get_state(config)
 
                 if snapshot.next:
@@ -116,4 +130,4 @@ class WebInterface:
                         )
                     st.session_state.messages.append({"role": "assistant", "content": response})
 
-
+                """
