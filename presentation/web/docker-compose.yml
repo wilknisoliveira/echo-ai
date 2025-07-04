@@ -1,9 +1,12 @@
 services:
-  echo:
-    container_name: echo-interface
-    image: echo-interface
-    build: .
-    ports:
-      - "8501:8501"
-    environment:
-      MASTER_KEY: ${MASTER_KEY}
+    echo:
+        container_name: echo-interface
+        image: echo-interface
+        build: .
+        env_file:
+            - .env
+        ports:
+            - "${EXTERNAL_PORT}:8501"
+        environment:
+            MASTER_KEY: ${MASTER_KEY}
+            LANGGRAPH_API_URL: ${LANGGRAPH_API_URL}

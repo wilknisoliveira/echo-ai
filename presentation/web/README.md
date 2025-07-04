@@ -3,7 +3,7 @@
 To set the environment, execute the following command:
 ```
 python3 -m venv venv
-venv/bin/activate
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -14,5 +14,5 @@ streamlit run main.py
 
 Execute with production mode:
 ```
-docker compose up -d
+docker compose up -d --build
 ```

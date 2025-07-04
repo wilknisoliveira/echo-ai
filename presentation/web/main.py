@@ -1,3 +1,5 @@
+from os import environ
+
 from dotenv import load_dotenv
 
 from interface.web_interface import WebInterface
@@ -5,7 +7,7 @@ from interface.web_interface import WebInterface
 
 load_dotenv()
 
-THREAD_ID = "429117eb-2230-429a-a0ec-76a84a5068ae"
+THREAD_ID = environ.get("THREAD_ID")
 USER_ID = "main_profile"
 IS_TERMINAL: bool = False
 

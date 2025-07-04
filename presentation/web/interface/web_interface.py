@@ -11,8 +11,6 @@ class WebInterface:
 
     @staticmethod
     def __extract_content_from_event(event: dict) -> str | None:
-        print('AQUI')
-        print(event.data)
         message = event.data.get("messages")
         if message:
             if isinstance(message, list):
@@ -41,7 +39,7 @@ class WebInterface:
         return complete_result
 
     @staticmethod
-    def check_password():
+    def __check_password():
         is_authorized = st.session_state["password"] == os.environ.get("MASTER_KEY")
         st.session_state["is_authorized"] = is_authorized
         if not is_authorized:
@@ -55,7 +53,7 @@ class WebInterface:
            st.text_input(
                "Password: ",
                type="password",
-               on_change=self.check_password,
+               on_change=self.__check_password,
                key="password"
            )
         else:
