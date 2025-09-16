@@ -128,7 +128,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-echo_ai_agent/.env
+.env
 .venv
 env/
 venv/
