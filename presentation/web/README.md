@@ -2,13 +2,14 @@
 
 To set the environment, execute the following command:
 ```bash
-python3 -m venv venv
+py -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 Execute with development mode:
 ```bash
+venv\Scripts\activate
 streamlit run main.py
 ```
 

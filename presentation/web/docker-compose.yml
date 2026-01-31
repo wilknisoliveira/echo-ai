@@ -1,3 +1,7 @@
+networks:
+  echo-net:
+    external: true
+
 services:
     echo:
         container_name: echo-interface
@@ -10,3 +14,5 @@ services:
         environment:
             MASTER_KEY: ${MASTER_KEY}
             LANGGRAPH_API_URL: ${LANGGRAPH_API_URL}
+        networks:
+            - echo-net
