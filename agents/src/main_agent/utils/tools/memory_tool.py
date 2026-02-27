@@ -101,4 +101,4 @@ that you consider as important.
     return f"{prompt}\n{memories}"
 
 
-_embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
