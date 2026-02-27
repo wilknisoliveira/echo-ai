@@ -1,9 +1,9 @@
 [project]
-name = "agent"
+name = "echo"
 version = "0.0.1"
-description = "Starter template for making a new agent LangGraph."
+description = "Personal assistant with memory"
 authors = [
-    { name = "William Fu-Hinthorn", email = "13333726+hinthornw@users.noreply.github.com" },
+    {name = "Wilknis", email = "wilknissilva@gmail.com"}
 ]
 readme = "README.md"
 license = { text = "MIT" }
@@ -11,6 +11,11 @@ requires-python = ">=3.10"
 dependencies = [
     "langgraph>=1.0.0",
     "python-dotenv>=1.0.1",
+    "langchain",
+    "langchain_core",
+    "langchain-google-genai",
+    "langmem",
+    "langchain_community"
 ]
 
 
@@ -22,10 +27,10 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph.templates.agent", "agent"]
+packages = ["langgraph.templates.agent", "main_agent"]
 [tool.setuptools.package-dir]
-"langgraph.templates.agent" = "src/agent"
-"agent" = "src/agent"
+"langgraph.templates.agent" = "src/main_agent"
+"main_agent" = "src/main_agent"
 
 
 [tool.setuptools.package-data]
