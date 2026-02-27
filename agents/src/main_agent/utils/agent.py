@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from langchain_core.runnables import Runnable, RunnableConfig
 
-from state import State
+from main_agent.utils.state import State
 
 
 class Agent:

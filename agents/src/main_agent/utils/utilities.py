@@ -20,7 +20,7 @@ def __handle_tool_error(state: dict) -> dict:
     }
 
 
-def create_tool_node_with_fallback(self, tools: list) -> dict:
+def create_tool_node_with_fallback(tools: list) -> dict:
     return ToolNode(tools).with_fallbacks(
         [RunnableLambda(__handle_tool_error)], exception_key="error"
     )
