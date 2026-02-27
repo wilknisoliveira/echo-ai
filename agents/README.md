@@ -3,15 +3,22 @@
 To set the environment, execute the following command:
 
 ```bash
-py -m venv venv
+py -m venv .venv
 venv\Scripts\activate
 pip install -e .
+```
+
+Or using uv:
+
+```bash
+uv sync
+uv sync --group dev
 ```
 
 Execute with development mode:
 
 ```bash
-venv\Scripts\activate
+.venv\Scripts\activate
 langgraph dev
 ```
 
