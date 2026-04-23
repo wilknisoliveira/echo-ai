@@ -179,3 +179,8 @@ cython_debug/
 # Langgraph files
 .langgraph_api
 echo.egg-info
+
+# AI artifacts
+PROMPT.md
+.opencode
+specs/

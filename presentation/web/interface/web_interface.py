@@ -3,6 +3,7 @@ import os
 import streamlit as st
 from langgraph_sdk import get_sync_client
 
+
 class WebInterface:
     def __init__(self, thread_id: str, user_id: str):
         self.thread_id: str = thread_id
@@ -15,22 +16,20 @@ class WebInterface:
         if message:
             if isinstance(message, list):
                 message = message[-1]
-            if message['type'] == "ai": 
-                return message['content']
+            if message["type"] == "ai":
+                return message["content"]
         return None
 
     def __get_response(self, message: str, thread_id: str, config: dict):
         chunks = self.client.runs.stream(
-            thread_id, "graph", 
-            input= {
-                "messages": [{
-                    "role": "human",
-                    "content": message
-                }]
-            }, 
-            stream_mode="values", config=config)
+            thread_id,
+            "agent",
+            input={"messages": [{"role": "human", "content": message}]},
+            stream_mode="values",
+            config=config,
+        )
 
-        complete_result = ''
+        complete_result = ""
         for chunk in chunks:
             result = self.__extract_content_from_event(chunk)
             if result:
@@ -50,12 +49,12 @@ class WebInterface:
             st.session_state["is_authorized"] = False
 
         if not st.session_state["is_authorized"]:
-           st.text_input(
-               "Password: ",
-               type="password",
-               on_change=self.__check_password,
-               key="password"
-           )
+            st.text_input(
+                "Password: ",
+                type="password",
+                on_change=self.__check_password,
+                key="password",
+            )
         else:
             st.title("Echo")
             if "messages" not in st.session_state:
@@ -70,16 +69,14 @@ class WebInterface:
                     st.markdown(prompt)
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
-                config = {
-                    "configurable": {
-                        "user_id": self.user_id
-                    }
-                }
+                config = {"configurable": {"user_id": self.user_id}}
 
                 with st.chat_message("assistant"):
                     response = self.__get_response(prompt, self.thread_id, config)
                     st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
 
                 # TODO: adapt to langgraph-sdk
                 """

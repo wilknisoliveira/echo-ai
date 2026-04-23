@@ -31,3 +31,8 @@ docker compose up -d --build
 # Dockerfile
 
 The `langgraph dockerfile` command translates all the configuration in your `langgraph.json` file into Dockerfile commands. When using this command, you will have to re-run it whenever you update your langgraph.json file. Otherwise, your changes will not be reflected when you build or run the dockerfile.
+
+# Generate new thread
+
+POST http://localhost:{PORT}/threads
+body: {}
