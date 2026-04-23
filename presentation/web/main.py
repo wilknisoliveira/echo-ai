@@ -10,8 +10,9 @@ load_dotenv()
 THREAD_ID = environ.get("THREAD_ID")
 USER_ID = "main_profile"
 IS_TERMINAL: bool = False
+DEBUG: bool = environ.get("DEBUG", "").lower() == "true"
 
 if __name__ == '__main__':
-    web_interface = WebInterface(THREAD_ID, USER_ID)
+    web_interface = WebInterface(THREAD_ID, USER_ID, debug=DEBUG)
     web_interface.build_interface()
 

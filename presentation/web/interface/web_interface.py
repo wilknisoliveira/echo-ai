@@ -1,13 +1,17 @@
+import logging
 import os
 
 import streamlit as st
 from langgraph_sdk import get_sync_client
 
+logger = logging.getLogger(__name__)
+
 
 class WebInterface:
-    def __init__(self, thread_id: str, user_id: str):
+    def __init__(self, thread_id: str, user_id: str, debug: bool = False):
         self.thread_id: str = thread_id
         self.user_id: str = user_id
+        self.debug: bool = debug
         self.client = get_sync_client(url=os.environ.get("LANGGRAPH_API_URL"))
 
     @staticmethod
@@ -16,11 +20,18 @@ class WebInterface:
         if message:
             if isinstance(message, list):
                 message = message[-1]
-            if message["type"] == "ai":
-                return message["content"]
+            if message.get("type") == "ai":
+                content = message.get("content")
+                if isinstance(content, list):
+                    return "".join(
+                        block.get("text", "")
+                        for block in content
+                        if block.get("type") == "text"
+                    )
+                return content or ""
         return None
 
-    def __get_response(self, message: str, thread_id: str, config: dict):
+    def __get_response(self, message: str, thread_id: str, config: dict) -> str:
         chunks = self.client.runs.stream(
             thread_id,
             "agent",
@@ -31,6 +42,8 @@ class WebInterface:
 
         complete_result = ""
         for chunk in chunks:
+            if self.debug:
+                logger.debug("Streaming event: %s", chunk)
             result = self.__extract_content_from_event(chunk)
             if result:
                 complete_result += result

@@ -41,11 +41,16 @@ Before any implementation:
 4. Review existing tools in `agents/src/main_agent/utils/tools/`
 
 ### Testing & Linting
+
+> **PowerShell Tips**
+> - Use `&` call operator for venv commands (e.g., `& .venv\Scripts\python.exe`)
+> - Avoid `&&` - use semicolon `;` for sequential commands
+> - Quote paths with spaces: `"C:\Program Files\..."`
+> - Run venv commands from project root or use `workdir` parameter
+
+**Python Syntax Check:**
 ```powershell
-cd agents
-pytest
-ruff check .
-mypy .
+& "C:\Users\wilkn\Code\Projects\Echo\echo-ai\presentation\web\venv\Scripts\python.exe" -m py_compile "file.py"
 ```
 
 ### Command Order
