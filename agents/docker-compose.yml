@@ -7,6 +7,7 @@ volumes:
 networks:
   echo-net:
     driver: bridge
+    name: echo-net
 
 services:
     langgraph-postgres:
