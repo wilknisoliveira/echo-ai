@@ -1,25 +1,27 @@
-from typing import Literal, Final
+from typing import Final
 
 from langchain_core.messages.utils import count_tokens_approximately
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import tools_condition
 from langmem.short_term import SummarizationNode
 
-from main_agent.utils.state import State, pop_dialog_state
+from main_agent.primary_agent import assistant_runnable, primary_assistant_tools
+from main_agent.utils.agent import Agent
 from main_agent.utils.llm_model import LLMModel
 from main_agent.utils.nodes.summarization_nodes import (
-    select_messages_before_summarize,
     select_messages_after_summarize,
+    select_messages_before_summarize,
 )
-from main_agent.utils.agent import Agent
-from main_agent.primary_agent import assistant_runnable, primary_assistant_tools
+from main_agent.utils.nodes.timestamp_node import attach_timestamps
+from main_agent.utils.state import State, pop_dialog_state
 from main_agent.utils.utilities import create_tool_node_with_fallback
 
 PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
 PRIMARY_ASSISTANT: Final = "primary_assistant"
 SELECT_MESSAGES_BEFORE_SUMMARIZE = "select_messages_before_summarize"
 SELECT_MESSAGES_AFTER_SUMMARIZE = "select_messages_after_summarize"
+ATTACH_TIMESTAMPS = "attach_timestamps"
 SUMMARIZE = "summarize"
 LEAVE_SKILL = "leave_skill"
 
@@ -47,6 +49,7 @@ def __route_primary_assistant(state: State) -> str:
 
 builder = StateGraph(State)
 
+builder.add_node(ATTACH_TIMESTAMPS, attach_timestamps)
 builder.add_node(SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
 builder.add_node(SUMMARIZE, summarization_node)
 builder.add_node(SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
@@ -57,7 +60,8 @@ builder.add_node(
 )
 builder.add_node(LEAVE_SKILL, pop_dialog_state)
 
-builder.add_edge(START, SELECT_MESSAGES_BEFORE_SUMMARIZE)
+builder.add_edge(START, ATTACH_TIMESTAMPS)
+builder.add_edge(ATTACH_TIMESTAMPS, SELECT_MESSAGES_BEFORE_SUMMARIZE)
 builder.add_edge(SELECT_MESSAGES_BEFORE_SUMMARIZE, SUMMARIZE)
 builder.add_edge(SUMMARIZE, SELECT_MESSAGES_AFTER_SUMMARIZE)
 builder.add_edge(SELECT_MESSAGES_AFTER_SUMMARIZE, PRIMARY_ASSISTANT)
