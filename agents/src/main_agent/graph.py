@@ -1,15 +1,15 @@
 from typing import Final
 
-from langchain_core.messages.utils import count_tokens_approximately
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import tools_condition
-from langmem.short_term import SummarizationNode
 
 from main_agent.primary_agent import assistant_runnable, primary_assistant_tools
 from main_agent.utils.agent import Agent
 from main_agent.utils.llm_model import LLMModel
 from main_agent.utils.nodes.summarization_nodes import (
+    create_summarization_node,
+    DEFAULT_SUMMARIZATION_GUIDE,
     select_messages_after_summarize,
     select_messages_before_summarize,
 )
@@ -25,13 +25,12 @@ ATTACH_TIMESTAMPS = "attach_timestamps"
 SUMMARIZE = "summarize"
 LEAVE_SKILL = "leave_skill"
 
-summarization_node = SummarizationNode(
-    token_counter=count_tokens_approximately,
+summarization_node = create_summarization_node(
     model=LLMModel(max_tokens=3000).llm,
-    max_summary_tokens=3000,
     max_tokens=10000,
-    max_tokens_before_summary=9500,  # Less than max_tokens to avoid loss data
-    output_messages_key="messages",
+    max_summary_tokens=3000,
+    max_tokens_before_summary=9500,
+    summary_guide=DEFAULT_SUMMARIZATION_GUIDE,
 )
 
 
