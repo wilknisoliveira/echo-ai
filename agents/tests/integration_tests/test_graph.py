@@ -1,5 +1,4 @@
 import pytest
-
 from agent import graph
 
 pytestmark = pytest.mark.anyio

@@ -1,7 +1,6 @@
+from langchain_core.runnables import Runnable, RunnableConfig
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
-
-from langchain_core.runnables import Runnable, RunnableConfig
 
 from main_agent.utils.state import State
 
@@ -30,7 +29,8 @@ class Agent:
 
 class CompleteOrEscalate(BaseModel):
     """A tool to mark the current task as completed and/or to escalate control of the dialog to the main assistant,
-    who can re-route the dialog as needed."""
+    who can re-route the dialog as needed.
+    """
 
     cancel: bool = True
     reason: str

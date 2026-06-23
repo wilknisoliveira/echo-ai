@@ -65,5 +65,4 @@ def select_messages_before_summarize(state: State):
 
 def select_messages_after_summarize(state: State):
     """Select Messages after Summarize"""
-
     return {"messages_to_keep": [], "messages": state["messages_to_keep"]}

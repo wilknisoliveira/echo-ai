@@ -1,12 +1,12 @@
+from typing import Annotated, Any
+
 from langchain_core.messages import ToolMessage
 from langgraph.graph import MessagesState
-from typing_extensions import Literal
-from typing import Annotated, Optional, Any
-
 from langgraph.graph.message import AnyMessage
+from typing_extensions import Literal
 
 
-def update_dialog_stack(left: list[str], right: Optional[str]) -> list[str]:
+def update_dialog_stack(left: list[str], right: str | None) -> list[str]:
     """Push or pop the state"""
     if right is None:
         return left

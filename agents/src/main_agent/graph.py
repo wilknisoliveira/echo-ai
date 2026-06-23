@@ -7,9 +7,10 @@ from langgraph.prebuilt import tools_condition
 from main_agent.primary_agent import assistant_runnable, primary_assistant_tools
 from main_agent.utils.agent import Agent
 from main_agent.utils.llm_model import LLMModel
+from main_agent.utils.nodes.criticality_node import criticality_assessment
 from main_agent.utils.nodes.summarization_nodes import (
-    create_summarization_node,
     DEFAULT_SUMMARIZATION_GUIDE,
+    create_summarization_node,
     select_messages_after_summarize,
     select_messages_before_summarize,
 )
@@ -19,6 +20,7 @@ from main_agent.utils.utilities import create_tool_node_with_fallback
 
 PRIMARY_ASSISTANT_TOOLS = "primary_assistant_tools"
 PRIMARY_ASSISTANT: Final = "primary_assistant"
+CRITICALITY_CHECK: Final = "criticality_check"
 SELECT_MESSAGES_BEFORE_SUMMARIZE = "select_messages_before_summarize"
 SELECT_MESSAGES_AFTER_SUMMARIZE = "select_messages_after_summarize"
 ATTACH_TIMESTAMPS = "attach_timestamps"
@@ -52,6 +54,7 @@ builder.add_node(ATTACH_TIMESTAMPS, attach_timestamps)
 builder.add_node(SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
 builder.add_node(SUMMARIZE, summarization_node)
 builder.add_node(SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
+builder.add_node(CRITICALITY_CHECK, criticality_assessment)
 builder.add_node(PRIMARY_ASSISTANT, Agent(assistant_runnable))
 builder.add_node(
     PRIMARY_ASSISTANT_TOOLS,
@@ -63,7 +66,8 @@ builder.add_edge(START, ATTACH_TIMESTAMPS)
 builder.add_edge(ATTACH_TIMESTAMPS, SELECT_MESSAGES_BEFORE_SUMMARIZE)
 builder.add_edge(SELECT_MESSAGES_BEFORE_SUMMARIZE, SUMMARIZE)
 builder.add_edge(SUMMARIZE, SELECT_MESSAGES_AFTER_SUMMARIZE)
-builder.add_edge(SELECT_MESSAGES_AFTER_SUMMARIZE, PRIMARY_ASSISTANT)
+builder.add_edge(SELECT_MESSAGES_AFTER_SUMMARIZE, CRITICALITY_CHECK)
+builder.add_edge(CRITICALITY_CHECK, PRIMARY_ASSISTANT)
 builder.add_conditional_edges(
     PRIMARY_ASSISTANT,
     __route_primary_assistant,

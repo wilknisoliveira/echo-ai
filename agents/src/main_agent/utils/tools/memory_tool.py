@@ -1,12 +1,11 @@
 import uuid
-from typing import Optional, Annotated
+from typing import Annotated
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolArg, tool
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import InjectedStore
-
 from langgraph.store.base import BaseStore
 
 
@@ -16,7 +15,7 @@ def upsert_memory(
     emotional_context: str,
     my_thoughts: str,
     *,
-    memory_id: Optional[uuid.UUID] = None,
+    memory_id: uuid.UUID | None = None,
     config: Annotated[RunnableConfig, InjectedToolArg],
     store: Annotated[BaseStore, InjectedStore],
 ) -> str:
