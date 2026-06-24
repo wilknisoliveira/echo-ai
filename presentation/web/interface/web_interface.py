@@ -14,41 +14,62 @@ class WebInterface:
         self.debug: bool = debug
         self.client = get_sync_client(url=os.environ.get("LANGGRAPH_API_URL"))
 
-    @staticmethod
-    def __extract_content_from_event(event: dict) -> str | None:
-        message = event.data.get("messages")
-        if message:
-            if isinstance(message, list):
-                message = message[-1]
-            if message.get("type") == "ai":
-                content = message.get("content")
-                if isinstance(content, list):
-                    return "".join(
-                        block.get("text", "")
-                        for block in content
-                        if block.get("type") == "text"
-                    )
-                return content or ""
-        return None
-
     def __get_response(self, message: str, thread_id: str, config: dict) -> str:
-        chunks = self.client.runs.stream(
-            thread_id,
-            "agent",
-            input={"messages": [{"role": "human", "content": message}]},
-            stream_mode="values",
-            config=config,
-        )
+        status_placeholder = st.empty()
+        result = ""
 
-        complete_result = ""
-        for chunk in chunks:
-            if self.debug:
-                logger.debug("Streaming event: %s", chunk)
-            result = self.__extract_content_from_event(chunk)
-            if result:
-                complete_result += result
+        try:
+            chunks = self.client.runs.stream(
+                thread_id,
+                "agent",
+                input={"messages": [{"role": "human", "content": message}]},
+                stream_mode="updates",
+                config=config,
+            )
 
-        return complete_result
+            for chunk in chunks:
+                if self.debug:
+                    logger.debug("Streaming event: %s", chunk)
+
+                for node_name, output in chunk.data.items():
+                    if node_name == "primary_assistant":
+                        messages = output.get("messages", [])
+                        if messages and isinstance(messages, list):
+                            last_msg = messages[-1]
+                            if last_msg.get("type") == "ai":
+                                tool_calls = last_msg.get("tool_calls", [])
+                                if tool_calls:
+                                    tool_name = tool_calls[0].get("name", "ferramenta")
+                                    status_placeholder.markdown(f"\u2699\ufe0f Executando {tool_name}...")
+                                else:
+                                    content = last_msg.get("content", "")
+                                    if isinstance(content, list):
+                                        result = "".join(
+                                            block.get("text", "")
+                                            for block in content
+                                            if block.get("type") == "text"
+                                        )
+                                    else:
+                                        result = content or ""
+                                    status_placeholder.empty()
+                    elif node_name == "criticality_check":
+                        status_placeholder.markdown("\u2699\ufe0f Executando criticality_agent...")
+                    elif node_name == "summarize":
+                        status_placeholder.markdown("\u2699\ufe0f Compactando hist\u00f3rico...")
+                    elif node_name == "primary_assistant_tools":
+                        status_placeholder.markdown("\u2699\ufe0f Executando ferramenta...")
+                    elif node_name in (
+                        "attach_timestamps",
+                        "select_messages_before_summarize",
+                        "select_messages_after_summarize",
+                    ):
+                        status_placeholder.markdown("\u2699\ufe0f Processando...")
+        except Exception:
+            logger.exception("Erro na stream da API LangGraph")
+            status_placeholder.empty()
+            return "\u26a0\ufe0f Erro ao processar sua mensagem. Tente novamente mais tarde."
+
+        return result
 
     @staticmethod
     def __check_password():
