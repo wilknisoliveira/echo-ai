@@ -14,7 +14,7 @@ dependencies = [
     "langchain>=1.0.0",
     "langchain_core>=1.0.0",
     "langchain-openrouter>=0.2.6",
-    "langchain-openai",
+    "langchain-google-genai>=0.1.0",
     "langmem>=0.0.1",
     "langchain_community>=0.0.1",
 ]

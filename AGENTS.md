@@ -41,7 +41,7 @@ mypy .
 ## Dependencies
 - Python >= 3.10
 - PostgreSQL + Redis (via docker-compose for production)
-- Environment: `.env` file with `OPENROUTER_API_KEY`, `POSTGRES_*`, `REDIS_*`
+- Environment: `.env` file with `OPENROUTER_API_KEY`, `GOOGLE_API_KEY`, `POSTGRES_*`, `REDIS_*`
 
 ## Notes
 - Single chat thread intentionally used (personal assistant)

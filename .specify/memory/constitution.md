@@ -61,7 +61,7 @@ lint → typecheck → test (run all three before committing)
 ### Dependencies
 - Python >= 3.10
 - PostgreSQL + Redis (required for production via docker-compose)
-- Environment: `.env` file with `OPENROUTER_API_KEY`, `POSTGRES_*`, `REDIS_*`
+- Environment: `.env` file with `OPENROUTER_API_KEY`, `GOOGLE_API_KEY`, `POSTGRES_*`, `REDIS_*`
 
 ### Services
 - Langgraph Agent: `agents/` (dev: `langgraph dev`)

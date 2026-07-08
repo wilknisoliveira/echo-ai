@@ -57,6 +57,7 @@ services:
         environment:
             REDIS_URI: redis://langgraph-redis:6379
             POSTGRES_URI: ${POSTGRES_URI}
+            GOOGLE_API_KEY: ${GOOGLE_API_KEY}
             OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
             LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
             LANGSMITH_TRACING: ${LANGSMITH_TRACING}

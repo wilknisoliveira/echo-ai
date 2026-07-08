@@ -1,4 +1,3 @@
-from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from main_agent.utils.llm_model import LLMModel
@@ -31,11 +30,5 @@ def criticality_assessment(state: State) -> dict:
     chain = prompt | llm
     response = chain.invoke({"messages": state["messages"]})
 
-    return {
-        "messages": [
-            AIMessage(
-                content=f"[Criticality Reasoning]: {response.content}",
-                name="criticality_agent",
-            )
-        ]
-    }
+    context = {**state.get("context", {}), "criticality": response.content}
+    return {"context": context}

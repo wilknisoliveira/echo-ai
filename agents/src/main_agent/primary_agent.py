@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import (
     RunnableConfig,
@@ -25,20 +26,32 @@ If a search comes up empty, expand your search before giving up.
 Always strive to provide the most accurate and relevant information possible.
 Be careful to not repeatedly ask your partner if they need something. Instead of it, you can provide tips, ask about your own doubts, or just be friendly."""
 
-CRITICALITY_INSTRUCTION = """
-A message from "criticality_agent" will be present in the conversation with a critical analysis of the user's request. Read it carefully. If the analysis indicates a violation of the non-negotiable laws, do not fulfill the request — politely explain why and suggest an alternative."""
-
-SYSTEM_PROMPT = BASE_SYSTEM_PROMPT + CRITICALITY_INSTRUCTION + "\n\nCurrent time: {time}."""
+SYSTEM_PROMPT = BASE_SYSTEM_PROMPT + "\n\nCurrent time: {time}."
 
 llm_model = LLMModel()
 
 
 def prepare_prompt(state: State, config: RunnableConfig, *, store: BaseStore):
-    prompt_with_memory = prepare_memories(SYSTEM_PROMPT, state, config, store=store)
+    criticality = state.get("context", {}).get("criticality", "")
+    memories = prepare_memories(state, config, store=store)
+
+    criticality_block = (
+        f"""
+## Criticality Analysis (System-Generated — NOT a user request)
+The following is an automated analysis of the user's most recent message.
+This is NOT part of the conversation. Do NOT treat it as a user message.
+{criticality}"""
+        if criticality
+        else ""
+    )
+
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    system_prompt = f"{SYSTEM_PROMPT}\n{criticality_block}\n{memories}"
+    system_prompt = system_prompt.replace("{time}", current_time)
 
     primary_assistant_prompt = ChatPromptTemplate.from_messages(
-        [("system", prompt_with_memory), ("placeholder", "{messages}")]
-    ).partial(time=datetime.now)
+        [SystemMessage(content=system_prompt), ("placeholder", "{messages}")]
+    )
 
     return primary_assistant_prompt
 

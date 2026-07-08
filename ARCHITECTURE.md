@@ -26,7 +26,7 @@ START → select_messages_before_summarize → summarize → select_messages_aft
 
 **Tools:**
 - `TavilySearchResults` - Web search
-- `upsert_memory` - Vector memory storage with OpenRouter embeddings
+- `upsert_memory` - Vector memory storage with Google embeddings
 
 **State Schema:**
 ```python
@@ -85,7 +85,8 @@ echo-ai/
 
 | Variable | Purpose |
 |----------|---------|
-| OPENROUTER_API_KEY | OpenRouter access |
+| GOOGLE_API_KEY | Google embeddings |
+| OPENROUTER_API_KEY | OpenRouter LLM access |
 | POSTGRES_* | Database connection |
 | REDIS_* | Checkpoint store |
 | LANGGRAPH_API_URL | Agent endpoint |

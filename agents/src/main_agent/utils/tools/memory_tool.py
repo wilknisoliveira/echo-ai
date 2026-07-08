@@ -1,14 +1,16 @@
+import logging
 import os
 import uuid
 from typing import Annotated
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolArg, tool
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import InjectedStore
 from langgraph.store.base import BaseStore
-from pydantic import SecretStr
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -57,7 +59,7 @@ def upsert_memory(
 
 
 def prepare_memories(
-    prompt: str, state: MessagesState, config: RunnableConfig, store: BaseStore
+    state: MessagesState, config: RunnableConfig, store: BaseStore
 ) -> str:
     user_id = config["configurable"]["user_id"]
     last_message = state["messages"][-1]
@@ -65,7 +67,11 @@ def prepare_memories(
     memories = ""
     if hasattr(last_message, "type") and last_message.type == "human":
         namespace = (user_id, "memories")
-        items = store.search(namespace, query=last_message.content, limit=10)
+        try:
+            items = store.search(namespace, query=last_message.content, limit=10)
+        except Exception as e:
+            logger.warning("Embedding search failed: %s", e)
+            items = []
         info = "\n".join(
             [
                 f"""
@@ -99,12 +105,10 @@ that you consider as important.
 """
         memories = f"{memory_instruction}\n\n{info}"
 
-    return f"{prompt}\n{memories}"
+    return memories
 
 
-_embeddings = OpenAIEmbeddings(
-    model=os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small"),
-    base_url="https://openrouter.ai/api/v1",
-    api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
-    dimensions=768,
+_embeddings = GoogleGenerativeAIEmbeddings(
+    model=os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001"),
+    output_dimensionality=768,
 )
