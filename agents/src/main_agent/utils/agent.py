@@ -24,7 +24,7 @@ class Agent:
                 state = {**state, "messages": messages}
             else:
                 break
-        return {"messages": result}
+        return {"messages": [result]}
 
 
 class CompleteOrEscalate(BaseModel):
