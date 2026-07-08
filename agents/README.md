@@ -15,6 +15,37 @@ uv sync
 uv sync --group dev
 ```
 
+## Install new dependencies
+
+### Using uv (recommended)
+
+```bash
+uv add <package-name>
+```
+
+To add a dev dependency:
+
+```bash
+uv add --group dev <package-name>
+```
+
+After adding, run `uv sync` to update the environment:
+
+```bash
+uv sync
+```
+
+### Using pip
+
+Activate the virtual environment first, then:
+
+```bash
+.venv\Scripts\activate
+pip install <package-name>
+```
+
+> **Note:** If you add a dependency that should be permanent, add it to `[project.dependencies]` in `pyproject.toml` as well.
+
 Execute with development mode:
 
 ```bash

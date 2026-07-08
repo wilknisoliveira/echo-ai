@@ -1,12 +1,14 @@
+import os
 import uuid
 from typing import Annotated
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolArg, tool
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import InjectedStore
 from langgraph.store.base import BaseStore
+from pydantic import SecretStr
 
 
 @tool
@@ -100,4 +102,9 @@ that you consider as important.
     return f"{prompt}\n{memories}"
 
 
-_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", output_dimensionality=768)
+_embeddings = OpenAIEmbeddings(
+    model=os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+    base_url="https://openrouter.ai/api/v1",
+    api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
+    dimensions=768,
+)

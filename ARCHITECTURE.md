@@ -22,11 +22,11 @@ START → select_messages_before_summarize → summarize → select_messages_aft
 - `PRIMARY_ASSISTANT_TOOLS` - Tool execution with fallback
 - `LEAVE_SKILL` - Dialog stack management
 
-**LLM:** Gemini 2.5 Flash (via langchain-google-genai)
+**LLM:** Gemini 2.5 Flash (via OpenRouter / langchain-openrouter)
 
 **Tools:**
 - `TavilySearchResults` - Web search
-- `upsert_memory` - Vector memory storage with Google embeddings
+- `upsert_memory` - Vector memory storage with OpenRouter embeddings
 
 **State Schema:**
 ```python
@@ -85,7 +85,7 @@ echo-ai/
 
 | Variable | Purpose |
 |----------|---------|
-| GOOGLE_API_KEY | Gemini access |
+| OPENROUTER_API_KEY | OpenRouter access |
 | POSTGRES_* | Database connection |
 | REDIS_* | Checkpoint store |
 | LANGGRAPH_API_URL | Agent endpoint |
