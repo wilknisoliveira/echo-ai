@@ -14,6 +14,32 @@ class WebInterface:
         self.debug: bool = debug
         self.client = get_sync_client(url=os.environ.get("LANGGRAPH_API_URL"))
 
+    def _load_history(self) -> None:
+        try:
+            state = self.client.threads.get_state(self.thread_id)
+            messages = state.get("values", {}).get("messages", [])
+        except Exception:
+            logger.warning("Could not fetch thread history for %s", self.thread_id)
+            return
+
+        for msg in messages[-20:]:
+            role = msg.get("type")
+            if role not in ("human", "ai"):
+                continue
+            content = msg.get("content", "")
+            if not content:
+                continue
+            if isinstance(content, list):
+                content = "".join(
+                    block.get("text", "")
+                    for block in content
+                    if block.get("type") == "text"
+                )
+            st.session_state.messages.append({
+                "role": "user" if role == "human" else "assistant",
+                "content": content,
+            })
+
     def __get_response(self, message: str, thread_id: str, config: dict) -> str:
         status_placeholder = st.empty()
         result = ""
@@ -93,6 +119,7 @@ class WebInterface:
             st.title("Echo")
             if "messages" not in st.session_state:
                 st.session_state.messages = []
+                self._load_history()
 
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
