@@ -12,6 +12,7 @@ from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 
 from main_agent.utils.llm_model import LLMModel
+from main_agent.utils.retry import retry_llm_call
 from main_agent.utils.state import State
 from main_agent.utils.tools.memory_tool import prepare_memories, upsert_memory
 
@@ -143,14 +144,17 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
         state, config, store=store, iteration_count=iteration_count
     )
 
-    raw_result = llm.with_structured_output(ReasoningOutput).invoke(prompt_messages)
-
-    if raw_result is None:
+    try:
+        raw_result = retry_llm_call(
+            lambda: llm.with_structured_output(ReasoningOutput).invoke(prompt_messages)
+        )
+    except Exception as e:
         logger.error(
-            "Reasoning node: LLM returned None for structured output "
-            "(iteration %d/%d). Using fallback.",
+            "Reasoning node: LLM call failed after retries "
+            "(iteration %d/%d): %s",
             iteration_count,
             MAX_ITERATIONS,
+            e,
         )
         result = ReasoningOutput(
             reasoning="The model encountered an error while processing.",
@@ -162,7 +166,24 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
             ),
         )
     else:
-        result = cast(ReasoningOutput, raw_result)
+        if raw_result is None:
+            logger.error(
+                "Reasoning node: LLM returned None for structured output "
+                "(iteration %d/%d). Using fallback.",
+                iteration_count,
+                MAX_ITERATIONS,
+            )
+            result = ReasoningOutput(
+                reasoning="The model encountered an error while processing.",
+                plan="N/A",
+                decision="finish",
+                final_answer=(
+                    "I'm sorry, I wasn't able to process that request. "
+                    "Please try rephrasing or ask me something else."
+                ),
+            )
+        else:
+            result = cast(ReasoningOutput, raw_result)
 
     _validate_reasoning_output(result, iteration_count)
 

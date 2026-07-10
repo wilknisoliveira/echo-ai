@@ -10,6 +10,7 @@ class LLMModel:
             "temperature": temperature,
             **({"max_tokens": max_tokens} if max_tokens else {}),
         }
-        if max_retries is not None:
-            llm_kwargs["max_retries"] = max_retries
+        retries = max_retries if max_retries is not None else int(os.getenv("LLM_MAX_RETRIES", "0"))
+        if retries:
+            llm_kwargs["max_retries"] = retries
         self.llm = ChatOpenRouter(**llm_kwargs)

@@ -18,6 +18,7 @@ from main_agent.utils.nodes.summarization_nodes import (
     select_messages_before_summarize,
 )
 from main_agent.utils.nodes.timestamp_node import attach_timestamps
+from main_agent.utils.retry import retry_llm_call
 from main_agent.utils.state import State, pop_dialog_state
 from main_agent.utils.utilities import create_tool_node_with_fallback
 
@@ -87,7 +88,7 @@ builder = StateGraph(State)
 
 builder.add_node(ATTACH_TIMESTAMPS, attach_timestamps)
 builder.add_node(SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
-builder.add_node(SUMMARIZE, summarization_node)
+builder.add_node(SUMMARIZE, lambda state: retry_llm_call(lambda: summarization_node.invoke(state)))
 builder.add_node(SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
 builder.add_node(CRITICALITY_CHECK, criticality_assessment)
 builder.add_node(REASONING, reasoning_node)

@@ -1,7 +1,12 @@
+import logging
+
 from langchain_core.prompts import ChatPromptTemplate
 
 from main_agent.utils.llm_model import LLMModel
+from main_agent.utils.retry import retry_llm_call
 from main_agent.utils.state import State
+
+logger = logging.getLogger(__name__)
 
 CRITICALITY_PROMPT = """You are a criticality assessment agent. Your only role is to analyze the user's most recent message and produce a thoughtful critical analysis.
 
@@ -29,10 +34,18 @@ def criticality_assessment(state: State) -> dict:
     llm = LLMModel().llm
     chain = prompt | llm
 
-    full_content = ""
-    for chunk in chain.stream({"messages": state["messages"]}):
-        content = chunk.content if isinstance(chunk.content, str) else ""
-        full_content += content
+    def _stream_criticality() -> str:
+        content = ""
+        for chunk in chain.stream({"messages": state["messages"]}):
+            chunk_text = chunk.content if isinstance(chunk.content, str) else ""
+            content += chunk_text
+        return content
+
+    try:
+        full_content = retry_llm_call(_stream_criticality)
+    except Exception as e:
+        logger.exception("Criticality node: LLM call failed after retries: %s", e)
+        full_content = ""
 
     context = {**state.get("context", {}), "criticality": full_content}
     return {"context": context}

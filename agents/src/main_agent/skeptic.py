@@ -1,12 +1,16 @@
 """Skeptic node that challenges the Reasoning output before action."""
 
+import logging
 from typing import cast
 
 from langchain_core.messages import AIMessage, SystemMessage
 from pydantic import BaseModel
 
 from main_agent.utils.llm_model import LLMModel
+from main_agent.utils.retry import retry_llm_call
 from main_agent.utils.state import State
+
+logger = logging.getLogger(__name__)
 
 
 class SkepticOutput(BaseModel):
@@ -72,7 +76,18 @@ def skeptic_node(state: State) -> dict:
 
     messages = [SystemMessage(content=prompt), *state["messages"]]
 
-    result = cast(SkepticOutput, llm.with_structured_output(SkepticOutput).invoke(messages))
+    try:
+        raw = retry_llm_call(
+            lambda: llm.with_structured_output(SkepticOutput).invoke(messages)
+        )
+    except Exception as e:
+        logger.exception("Skeptic node: LLM call failed after retries: %s", e)
+        result = SkepticOutput(
+            approved=True,
+            feedback=["Skeptic check unavailable due to a processing error."],
+        )
+    else:
+        result = cast(SkepticOutput, raw)
 
     result_dict: dict = {"skeptic_output": result}
 
