@@ -75,7 +75,7 @@ FINAL_ITERATION_MESSAGE = "[SYSTEM] This is your final reasoning iteration. You 
 
 primary_assistant_tools = [TavilySearchResults(max_results=1), upsert_memory]
 
-llm = LLMModel().llm
+llm = LLMModel(model_env_key="LLM_STRUCTURED_MODEL").llm
 
 
 def _build_reasoning_prompt(

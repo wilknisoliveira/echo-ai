@@ -48,7 +48,7 @@ If you identify weaknesses, explain them clearly and specifically in your feedba
 Do NOT reject reasoning just to create extra work. Be constructive — only reject when there are genuine issues."""
 
 
-llm = LLMModel().llm
+llm = LLMModel(model_env_key="LLM_STRUCTURED_MODEL").llm
 
 
 def skeptic_node(state: State) -> dict:
