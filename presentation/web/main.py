@@ -1,18 +1,12 @@
-from os import environ
-
 from dotenv import load_dotenv
-
-from interface.web_interface import WebInterface
-
+from interface.web_interface import WebInterface  # noqa: E402
 
 load_dotenv()
 
-THREAD_ID = environ.get("THREAD_ID")
 USER_ID = "main_profile"
-IS_TERMINAL: bool = False
-DEBUG: bool = environ.get("DEBUG", "").lower() == "true"
+DEBUG: bool = __import__("os").environ.get("DEBUG", "").lower() == "true"
 
 if __name__ == '__main__':
-    web_interface = WebInterface(THREAD_ID, USER_ID, debug=DEBUG)
+    web_interface = WebInterface(USER_ID, debug=DEBUG)
     web_interface.build_interface()
 
