@@ -33,6 +33,24 @@ class WebInterface:
         tid = thread.get("thread_id", "")
         return tid[:8] + "..." if len(tid) > 8 else tid
 
+    @staticmethod
+    def _node_icon(name: str) -> str:
+        if "reason" in name:
+            return "\U0001f4ad"
+        if "skeptic" in name:
+            return "\U0001f50d"
+        if "critical" in name:
+            return "\U0001f9e0"
+        if "tool" in name:
+            return "\U0001f6e0\ufe0f"
+        if "summar" in name:
+            return "\U0001f4dd"
+        if "prepar" in name:
+            return "\U0001f527"
+        if "timestamp" in name:
+            return "\u23f1\ufe0f"
+        return "\u2699\ufe0f"
+
     def _list_threads(self) -> list[dict[str, Any]]:
         try:
             return self.client.threads.search(  # type: ignore[return-value]
@@ -129,20 +147,31 @@ class WebInterface:
                     })
                     break
 
-    def _handle_stream(self, message: str, thread_id: str, config: dict) -> str:
-        status_placeholder = st.empty()
+    def _handle_stream(self, message: str, thread_id: str, config: dict) -> None:
+        content_placeholder = st.empty()
         criticality_text = ""
         criticality_placeholder = None
-        processing_status = None
-        assistant_text = ""
-        assistant_placeholder = None
+        streaming_buffers: dict[str, str] = {}
+        streaming_placeholders: dict[str, Any] = {}
+
+        existing_message_ids: set[str] = set()
+        try:
+            thread_state = self.client.threads.get_state(thread_id)
+            if isinstance(thread_state, dict):
+                values = thread_state.get("values", {})
+                if isinstance(values, dict):
+                    for msg in values.get("messages", []):
+                        if msg.get("id"):
+                            existing_message_ids.add(msg["id"])
+        except Exception:
+            pass
 
         try:
             chunks = self.client.runs.stream(  # type: ignore[call-overload]
                 thread_id,
                 "agent",
                 input={"messages": [{"role": "human", "content": message}]},
-                stream_mode=["messages-tuple", "updates"],
+                stream_mode=["messages-tuple", "updates", "checkpoints"],
                 config=config,
             )
 
@@ -150,48 +179,55 @@ class WebInterface:
                 if self.debug:
                     logger.debug("Streaming event: %s", chunk)
 
-                if chunk.event == "messages":
+                if chunk.event == "checkpoints":
+                    next_nodes = chunk.data.get("next", [])
+                    if next_nodes:
+                        node = next_nodes[0]
+                        icon = self._node_icon(node)
+                        label = node.replace("_", " ").title()
+                        st.toast(f"\u23f3 Processing **{label}**...")
+
+                elif chunk.event == "messages":
                     message_chunk, metadata = chunk.data
                     node = metadata.get("langgraph_node")
+                    if not node:
+                        continue
+
+                    content = message_chunk.get("content", "")
+                    if not content:
+                        continue
 
                     if node == "criticality_check":
-                        content = message_chunk.get("content", "")
-                        if content:
-                            criticality_text += content
-                            if criticality_placeholder is None:
-                                status_placeholder.empty()
-                                criticality_placeholder = (
-                                    st.chat_message("assistant", avatar="\U0001f9e0")
-                                    .empty()
-                                )
-                            criticality_placeholder.markdown(
-                                f"**Criticality Analysis**\n\n{criticality_text}"
+                        criticality_text += content
+                        if criticality_placeholder is None:
+                            content_placeholder.empty()
+                            criticality_placeholder = (
+                                st.chat_message("assistant", avatar="\U0001f9e0")
+                                .empty()
                             )
-
-                    elif node == "primary_assistant":
-                        content = message_chunk.get("content", "")
-                        if content:
-                            if assistant_placeholder is None:
-                                if processing_status is not None:
-                                    processing_status.empty()
-                                    processing_status = None
-                                assistant_placeholder = (
-                                    st.chat_message("assistant").empty()
-                                )
-
-                            assistant_text += content
-                            assistant_placeholder.markdown(assistant_text)
+                        criticality_placeholder.markdown(
+                            f"**Criticality Analysis**\n\n{criticality_text}"
+                        )
+                    else:
+                        if node not in streaming_buffers:
+                            streaming_buffers[node] = ""
+                            streaming_placeholders[node] = st.empty()
+                        streaming_buffers[node] += content
+                        streaming_placeholders[node].markdown(
+                            streaming_buffers[node]
+                        )
 
                 elif chunk.event == "updates":
                     for node_name, output in chunk.data.items():
                         if node_name == "criticality_check":
-                            context = output.get("context", {})
-                            ct = context.get("criticality", "")
+                            ct = (
+                                output.get("context", {}).get("criticality", "")
+                            )
                             if not ct:
                                 continue
                             criticality_text = ct
                             if criticality_placeholder is None:
-                                status_placeholder.empty()
+                                content_placeholder.empty()
                                 criticality_placeholder = (
                                     st.chat_message("assistant", avatar="\U0001f9e0")
                                     .empty()
@@ -199,55 +235,37 @@ class WebInterface:
                             criticality_placeholder.markdown(
                                 f"**Criticality Analysis**\n\n{ct}"
                             )
-                            if processing_status is None:
-                                processing_status = st.empty()
-                                processing_status.markdown(
-                                    "\u23f3 Preparing response..."
-                                )
-                        elif node_name == "primary_assistant":
-                            if assistant_placeholder is not None:
-                                continue
-                            messages = output.get("messages", [])
-                            if messages and isinstance(messages, list):
-                                last_msg = messages[-1]
-                                if last_msg.get("type") == "ai":
-                                    tool_calls = last_msg.get("tool_calls", [])
-                                    if tool_calls:
-                                        tool_name = tool_calls[0].get(
-                                            "name", "ferramenta"
-                                        )
-                                        status_placeholder.markdown(
-                                            f"\u2699\ufe0f Executando {tool_name}..."
-                                        )
-                        elif node_name == "summarize":
-                            if assistant_placeholder is None:
-                                status_placeholder.markdown(
-                                    "\U0001f4dd Compactando hist\u00f3rico..."
-                                )
-                        elif node_name == "primary_assistant_tools":
-                            if assistant_placeholder is None:
-                                status_placeholder.markdown(
-                                    "\u2699\ufe0f Executando ferramenta..."
-                                )
-                        elif node_name in (
-                            "attach_timestamps",
-                            "select_messages_before_summarize",
-                            "select_messages_after_summarize",
-                        ):
-                            if assistant_placeholder is None:
-                                status_placeholder.markdown(
-                                    "\u2699\ufe0f Processando..."
-                                )
+                            continue
+
+                        if "context" in output:
+                            if node_name in streaming_placeholders:
+                                streaming_placeholders[node_name].empty()
+                                del streaming_placeholders[node_name]
+                            if node_name in streaming_buffers:
+                                del streaming_buffers[node_name]
+                            continue
+
+                        if node_name in streaming_placeholders:
+                            buf = streaming_buffers.get(node_name, "")
+                            if buf:
+                                icon = self._node_icon(node_name)
+                                label = node_name.replace("_", " ").title()
+                                display = f"{icon} **{label}**\n\n{buf}"
+                                st.chat_message("assistant").markdown(display)
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": buf,
+                                    "node": node_name,
+                                })
+                            streaming_placeholders[node_name].empty()
+                            del streaming_placeholders[node_name]
+                            if node_name in streaming_buffers:
+                                del streaming_buffers[node_name]
 
             if criticality_text and criticality_placeholder is None:
                 with st.chat_message("assistant", avatar="\U0001f9e0"):
                     st.markdown(
                         f"**Criticality Analysis**\n\n{criticality_text}"
-                    )
-                if processing_status is None:
-                    processing_status = st.empty()
-                    processing_status.markdown(
-                        "\u23f3 Preparing response..."
                     )
 
             if criticality_text:
@@ -256,19 +274,14 @@ class WebInterface:
                     "content": criticality_text,
                 })
 
-            if processing_status is not None:
-                processing_status.empty()
-
-            status_placeholder.empty()
-            return assistant_text
+            content_placeholder.empty()
 
         except Exception:
             logger.exception("Erro na stream da API LangGraph")
-            status_placeholder.empty()
+            content_placeholder.empty()
             st.error(
-                "\u26a0\ufe0f Erro ao processar sua mensagem. Tente novamente mais tarde."
+                "\u26a0\ufe0f Error processing your message. Please try again later."
             )
-            return ""
 
     @staticmethod
     def __check_password():
@@ -358,7 +371,14 @@ class WebInterface:
                         )
                 else:
                     with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
+                        if "node" in message:
+                            icon = self._node_icon(message["node"])
+                            label = message["node"].replace("_", " ").title()
+                            st.markdown(
+                                f"{icon} **{label}**\n\n{message['content']}"
+                            )
+                        else:
+                            st.markdown(message["content"])
 
             if prompt := st.chat_input("What is up?"):
                 with st.chat_message("user"):
@@ -367,9 +387,6 @@ class WebInterface:
 
                 config = {"configurable": {"user_id": self.user_id}}
 
-                response = self._handle_stream(prompt, st.session_state.thread_id, config)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response}
-                )
+                self._handle_stream(prompt, st.session_state.thread_id, config)
 
                 self._try_auto_title(st.session_state.thread_id)

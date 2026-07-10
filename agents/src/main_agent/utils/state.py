@@ -36,3 +36,6 @@ class State(MessagesState):
     context: dict[str, Any]  # Keep info about the last summarization
     messages_to_keep: list[AnyMessage]
     dialog_state: Annotated[list[Literal["assistant",]], update_dialog_stack]
+    iteration_count: int
+    reasoning_output: Any
+    skeptic_output: Any
