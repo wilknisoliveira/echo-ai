@@ -28,7 +28,11 @@ def criticality_assessment(state: State) -> dict:
 
     llm = LLMModel().llm
     chain = prompt | llm
-    response = chain.invoke({"messages": state["messages"]})
 
-    context = {**state.get("context", {}), "criticality": response.content}
+    full_content = ""
+    for chunk in chain.stream({"messages": state["messages"]}):
+        content = chunk.content if isinstance(chunk.content, str) else ""
+        full_content += content
+
+    context = {**state.get("context", {}), "criticality": full_content}
     return {"context": context}

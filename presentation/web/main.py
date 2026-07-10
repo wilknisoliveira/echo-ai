@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from interface.web_interface import WebInterface  # noqa: E402
+from interface.web_interface import WebInterface
 
 load_dotenv()
 

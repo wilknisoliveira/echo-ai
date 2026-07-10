@@ -91,10 +91,14 @@ class WebInterface:
             values = state.get("values")
             if isinstance(values, dict):
                 messages = values.get("messages", [])
+                context = values.get("context", {})
             else:
                 messages = values if isinstance(values, list) else []
+                context = {}
         except Exception:
-            logger.warning("Could not fetch thread history for %s", st.session_state.thread_id)
+            logger.warning(
+                "Could not fetch thread history for %s", st.session_state.thread_id
+            )
             return
 
         for msg in messages[-20:]:
@@ -115,8 +119,23 @@ class WebInterface:
                 "content": content,
             })
 
-    def _stream_response(self, message: str, thread_id: str, config: dict):
+        criticality = context.get("criticality", "")
+        if criticality:
+            for i in range(len(st.session_state.messages) - 1, -1, -1):
+                if st.session_state.messages[i]["role"] == "assistant":
+                    st.session_state.messages.insert(i, {
+                        "role": "criticality",
+                        "content": criticality,
+                    })
+                    break
+
+    def _handle_stream(self, message: str, thread_id: str, config: dict) -> str:
         status_placeholder = st.empty()
+        criticality_text = ""
+        criticality_placeholder = None
+        processing_status = None
+        assistant_text = ""
+        assistant_placeholder = None
 
         try:
             chunks = self.client.runs.stream(  # type: ignore[call-overload]
@@ -133,39 +152,123 @@ class WebInterface:
 
                 if chunk.event == "messages":
                     message_chunk, metadata = chunk.data
-                    if metadata.get("langgraph_node") == "primary_assistant":
+                    node = metadata.get("langgraph_node")
+
+                    if node == "criticality_check":
                         content = message_chunk.get("content", "")
                         if content:
-                            status_placeholder.empty()
-                            yield content
+                            criticality_text += content
+                            if criticality_placeholder is None:
+                                status_placeholder.empty()
+                                criticality_placeholder = (
+                                    st.chat_message("assistant", avatar="\U0001f9e0")
+                                    .empty()
+                                )
+                            criticality_placeholder.markdown(
+                                f"**Criticality Analysis**\n\n{criticality_text}"
+                            )
+
+                    elif node == "primary_assistant":
+                        content = message_chunk.get("content", "")
+                        if content:
+                            if assistant_placeholder is None:
+                                if processing_status is not None:
+                                    processing_status.empty()
+                                    processing_status = None
+                                assistant_placeholder = (
+                                    st.chat_message("assistant").empty()
+                                )
+
+                            assistant_text += content
+                            assistant_placeholder.markdown(assistant_text)
 
                 elif chunk.event == "updates":
                     for node_name, output in chunk.data.items():
-                        if node_name == "primary_assistant":
+                        if node_name == "criticality_check":
+                            context = output.get("context", {})
+                            ct = context.get("criticality", "")
+                            if not ct:
+                                continue
+                            criticality_text = ct
+                            if criticality_placeholder is None:
+                                status_placeholder.empty()
+                                criticality_placeholder = (
+                                    st.chat_message("assistant", avatar="\U0001f9e0")
+                                    .empty()
+                                )
+                            criticality_placeholder.markdown(
+                                f"**Criticality Analysis**\n\n{ct}"
+                            )
+                            if processing_status is None:
+                                processing_status = st.empty()
+                                processing_status.markdown(
+                                    "\u23f3 Preparing response..."
+                                )
+                        elif node_name == "primary_assistant":
+                            if assistant_placeholder is not None:
+                                continue
                             messages = output.get("messages", [])
                             if messages and isinstance(messages, list):
                                 last_msg = messages[-1]
                                 if last_msg.get("type") == "ai":
                                     tool_calls = last_msg.get("tool_calls", [])
                                     if tool_calls:
-                                        tool_name = tool_calls[0].get("name", "ferramenta")
-                                        status_placeholder.markdown(f"\u2699\ufe0f Executando {tool_name}...")
-                        elif node_name == "criticality_check":
-                            status_placeholder.markdown("\u2699\ufe0f Executando criticality_agent...")
+                                        tool_name = tool_calls[0].get(
+                                            "name", "ferramenta"
+                                        )
+                                        status_placeholder.markdown(
+                                            f"\u2699\ufe0f Executando {tool_name}..."
+                                        )
                         elif node_name == "summarize":
-                            status_placeholder.markdown("\u2699\ufe0f Compactando hist\u00f3rico...")
+                            if assistant_placeholder is None:
+                                status_placeholder.markdown(
+                                    "\U0001f4dd Compactando hist\u00f3rico..."
+                                )
                         elif node_name == "primary_assistant_tools":
-                            status_placeholder.markdown("\u2699\ufe0f Executando ferramenta...")
+                            if assistant_placeholder is None:
+                                status_placeholder.markdown(
+                                    "\u2699\ufe0f Executando ferramenta..."
+                                )
                         elif node_name in (
                             "attach_timestamps",
                             "select_messages_before_summarize",
                             "select_messages_after_summarize",
                         ):
-                            status_placeholder.markdown("\u2699\ufe0f Processando...")
+                            if assistant_placeholder is None:
+                                status_placeholder.markdown(
+                                    "\u2699\ufe0f Processando..."
+                                )
+
+            if criticality_text and criticality_placeholder is None:
+                with st.chat_message("assistant", avatar="\U0001f9e0"):
+                    st.markdown(
+                        f"**Criticality Analysis**\n\n{criticality_text}"
+                    )
+                if processing_status is None:
+                    processing_status = st.empty()
+                    processing_status.markdown(
+                        "\u23f3 Preparing response..."
+                    )
+
+            if criticality_text:
+                st.session_state.messages.append({
+                    "role": "criticality",
+                    "content": criticality_text,
+                })
+
+            if processing_status is not None:
+                processing_status.empty()
+
+            status_placeholder.empty()
+            return assistant_text
+
         except Exception:
             logger.exception("Erro na stream da API LangGraph")
             status_placeholder.empty()
-            yield "\u26a0\ufe0f Erro ao processar sua mensagem. Tente novamente mais tarde."
+            st.error(
+                "\u26a0\ufe0f Erro ao processar sua mensagem. Tente novamente mais tarde."
+            )
+            return ""
 
     @staticmethod
     def __check_password():
@@ -248,8 +351,14 @@ class WebInterface:
                 self._load_history()
 
             for message in st.session_state.messages:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+                if message["role"] == "criticality":
+                    with st.chat_message("assistant", avatar="\U0001f9e0"):
+                        st.markdown(
+                            f"**Criticality Analysis**\n\n{message['content']}"
+                        )
+                else:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
 
             if prompt := st.chat_input("What is up?"):
                 with st.chat_message("user"):
@@ -258,10 +367,9 @@ class WebInterface:
 
                 config = {"configurable": {"user_id": self.user_id}}
 
-                with st.chat_message("assistant"):
-                    response = st.write_stream(self._stream_response(prompt, st.session_state.thread_id, config))
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": response}
-                    )
+                response = self._handle_stream(prompt, st.session_state.thread_id, config)
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response}
+                )
 
                 self._try_auto_title(st.session_state.thread_id)
