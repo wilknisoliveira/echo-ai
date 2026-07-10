@@ -51,6 +51,21 @@ class WebInterface:
             return "\u23f1\ufe0f"
         return "\u2699\ufe0f"
 
+    @staticmethod
+    def _infer_node_name(msg: dict) -> str | None:
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            content = "".join(
+                block.get("text", "")
+                for block in content
+                if block.get("type") == "text"
+            )
+        if content.startswith("**Reasoning:**"):
+            return "reasoning"
+        if content.startswith("[Skeptic Challenge]"):
+            return "skeptic"
+        return None
+
     def _list_threads(self) -> list[dict[str, Any]]:
         try:
             return self.client.threads.search(  # type: ignore[return-value]
@@ -132,16 +147,21 @@ class WebInterface:
                     for block in content
                     if block.get("type") == "text"
                 )
-            st.session_state.messages.append({
+            entry: dict[str, Any] = {
                 "role": "user" if role == "human" else "assistant",
                 "content": content,
-            })
+            }
+            if role == "ai":
+                node = self._infer_node_name(msg)
+                if node:
+                    entry["node"] = node
+            st.session_state.messages.append(entry)
 
         criticality = context.get("criticality", "")
         if criticality:
             for i in range(len(st.session_state.messages) - 1, -1, -1):
-                if st.session_state.messages[i]["role"] == "assistant":
-                    st.session_state.messages.insert(i, {
+                if st.session_state.messages[i]["role"] == "user":
+                    st.session_state.messages.insert(i + 1, {
                         "role": "criticality",
                         "content": criticality,
                     })
@@ -153,18 +173,6 @@ class WebInterface:
         criticality_placeholder = None
         streaming_buffers: dict[str, str] = {}
         streaming_placeholders: dict[str, Any] = {}
-
-        existing_message_ids: set[str] = set()
-        try:
-            thread_state = self.client.threads.get_state(thread_id)
-            if isinstance(thread_state, dict):
-                values = thread_state.get("values", {})
-                if isinstance(values, dict):
-                    for msg in values.get("messages", []):
-                        if msg.get("id"):
-                            existing_message_ids.add(msg["id"])
-        except Exception:
-            pass
 
         try:
             chunks = self.client.runs.stream(  # type: ignore[call-overload]
@@ -269,7 +277,12 @@ class WebInterface:
                     )
 
             if criticality_text:
-                st.session_state.messages.append({
+                insert_pos = len(st.session_state.messages)
+                for i in range(len(st.session_state.messages) - 1, -1, -1):
+                    if st.session_state.messages[i]["role"] == "user":
+                        insert_pos = i + 1
+                        break
+                st.session_state.messages.insert(insert_pos, {
                     "role": "criticality",
                     "content": criticality_text,
                 })
