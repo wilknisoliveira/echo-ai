@@ -78,7 +78,7 @@ def skeptic_node(state: State) -> dict:
 
     try:
         raw = retry_llm_call(
-            lambda: llm.with_structured_output(SkepticOutput).invoke(messages)
+            lambda: llm.with_structured_output(SkepticOutput, method="json_mode").invoke(messages)
         )
     except Exception as e:
         logger.exception("Skeptic node: LLM call failed after retries: %s", e)

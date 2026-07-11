@@ -146,7 +146,7 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
 
     try:
         raw_result = retry_llm_call(
-            lambda: llm.with_structured_output(ReasoningOutput).invoke(prompt_messages)
+            lambda: llm.with_structured_output(ReasoningOutput, method="json_mode").invoke(prompt_messages)
         )
     except Exception as e:
         logger.error(
@@ -184,6 +184,14 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
             )
         else:
             result = cast(ReasoningOutput, raw_result)
+
+    if iteration_count >= MAX_ITERATIONS and result.decision == "call_tools":
+        result.decision = "finish"
+        if not result.final_answer:
+            result.final_answer = (
+                "I've reached my analysis limit for this request. "
+                "Here's what I've determined so far."
+            )
 
     _validate_reasoning_output(result, iteration_count)
 

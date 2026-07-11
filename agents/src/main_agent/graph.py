@@ -42,6 +42,10 @@ summarization_node = create_summarization_node(
 )
 
 
+def _reset_iteration_count(state: State) -> dict:
+    return {"iteration_count": 0}
+
+
 def __route_after_reasoning(state: State) -> str:
     count = state.get("iteration_count", 0)
     if count >= MAX_ITERATIONS:
@@ -90,6 +94,7 @@ builder.add_node(ATTACH_TIMESTAMPS, attach_timestamps)
 builder.add_node(SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
 builder.add_node(SUMMARIZE, lambda state: retry_llm_call(lambda: summarization_node.invoke(state)))
 builder.add_node(SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
+builder.add_node("reset_iteration_count", _reset_iteration_count)
 builder.add_node(CRITICALITY_CHECK, criticality_assessment)
 builder.add_node(REASONING, reasoning_node)
 builder.add_node(SKEPTIC, skeptic_node)
@@ -103,7 +108,8 @@ builder.add_node(
 )
 builder.add_node(LEAVE_SKILL, pop_dialog_state)
 
-builder.add_edge(START, ATTACH_TIMESTAMPS)
+builder.add_edge(START, "reset_iteration_count")
+builder.add_edge("reset_iteration_count", ATTACH_TIMESTAMPS)
 builder.add_edge(ATTACH_TIMESTAMPS, SELECT_MESSAGES_BEFORE_SUMMARIZE)
 builder.add_edge(SELECT_MESSAGES_BEFORE_SUMMARIZE, SUMMARIZE)
 builder.add_edge(SUMMARIZE, SELECT_MESSAGES_AFTER_SUMMARIZE)

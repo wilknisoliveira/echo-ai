@@ -151,6 +151,8 @@ class WebInterface:
                 "role": "user" if role == "human" else "assistant",
                 "content": content,
             }
+            if msg.get("id"):
+                entry["id"] = msg["id"]
             if role == "ai":
                 node = self._infer_node_name(msg)
                 if node:
@@ -167,12 +169,129 @@ class WebInterface:
                     })
                     break
 
+    VISIBLE_NODES = frozenset({"criticality_check", "reasoning", "skeptic"})
+
+    def _on_checkpoint(self, data: dict) -> None:
+        next_nodes = data.get("next", [])
+        if next_nodes and next_nodes[0] in self.VISIBLE_NODES:
+            node = next_nodes[0]
+            label = node.replace("_", " ").title()
+            st.toast(f"\u23f3 Processing **{label}**...")
+
+    def _stream_criticality(self, content: str, buffers: dict) -> None:
+        buffers["_criticality"] = buffers.get("_criticality", "") + content
+        if "_criticality_ph" not in buffers:
+            buffers["_criticality_ph"] = (
+                st.chat_message("assistant", avatar="\U0001f9e0").empty()
+            )
+        buffers["_criticality_ph"].markdown(
+            f"**Criticality Analysis**\n\n{buffers['_criticality']}"
+        )
+
+    def _stream_reasoning(self, content: str, buffers: dict) -> None:
+        pass
+
+    def _stream_skeptic(self, content: str, buffers: dict) -> None:
+        if "skeptic" not in buffers:
+            buffers["skeptic"] = ""
+            buffers["skeptic_ph"] = st.empty()
+        buffers["skeptic"] += content
+        buffers["skeptic_ph"].markdown(buffers["skeptic"])
+
+    def _dispatch_stream(self, node: str, content: str, buffers: dict) -> None:
+        if node == "criticality_check":
+            self._stream_criticality(content, buffers)
+        elif node == "reasoning":
+            self._stream_reasoning(content, buffers)
+        elif node == "skeptic":
+            self._stream_skeptic(content, buffers)
+
+    def _complete_criticality(self, output: dict, buffers: dict) -> None:
+        ct = output.get("context", {}).get("criticality", "")
+        if ct:
+            buffers["_criticality"] = ct
+        if "_criticality_ph" in buffers:
+            del buffers["_criticality_ph"]
+
+    def _complete_reasoning(self, output: dict, buffers: dict) -> None:
+        for msg in output.get("messages", []):
+            if msg.get("type") != "ai":
+                continue
+            content = msg.get("content", "")
+            if not content:
+                continue
+            if isinstance(content, list):
+                content = "".join(
+                    block.get("text", "") for block in content
+                    if block.get("type") == "text"
+                )
+            if not content:
+                continue
+            msg_id = msg.get("id")
+            if msg_id and any(
+                m.get("id") == msg_id for m in st.session_state.messages
+            ):
+                continue
+            entry: dict[str, Any] = {
+                "role": "assistant",
+                "content": content,
+            }
+            if msg_id:
+                entry["id"] = msg_id
+            if content.startswith("**Reasoning:**"):
+                entry["node"] = "reasoning"
+            st.session_state.messages.append(entry)
+            with st.chat_message("assistant"):
+                if "node" in entry:
+                    icon = self._node_icon(entry["node"])
+                    label = entry["node"].replace("_", " ").title()
+                    st.markdown(f"{icon} **{label}**\n\n{content}")
+                else:
+                    st.markdown(content)
+
+    def _complete_skeptic(self, output: dict, buffers: dict) -> None:
+        skeptic = output.get("skeptic_output", {})
+        if skeptic.get("approved", True) or not skeptic.get("feedback"):
+            if "skeptic_ph" in buffers:
+                buffers["skeptic_ph"].empty()
+                del buffers["skeptic_ph"]
+            buffers.pop("skeptic", None)
+            return
+        for msg in output.get("messages", []):
+            if msg.get("type") != "ai":
+                continue
+            content = msg.get("content", "")
+            if not content:
+                continue
+            if "skeptic_ph" in buffers:
+                buffers["skeptic_ph"].empty()
+                del buffers["skeptic_ph"]
+            buffers.pop("skeptic", None)
+            with st.chat_message("assistant", avatar="\U0001f50d"):
+                st.markdown(f"**Skeptic Review**\n\n{content}")
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": content,
+                "node": "skeptic",
+            })
+
+    def _dispatch_complete(self, node_name: str, output: dict, buffers: dict) -> None:
+        if node_name == "criticality_check":
+            self._complete_criticality(output, buffers)
+        elif node_name == "reasoning":
+            self._complete_reasoning(output, buffers)
+        elif node_name == "skeptic":
+            self._complete_skeptic(output, buffers)
+        else:
+            ph_key = f"{node_name}_ph"
+            if ph_key in buffers:
+                buffers[ph_key].empty()
+                del buffers[ph_key]
+            if node_name in buffers:
+                del buffers[node_name]
+
     def _handle_stream(self, message: str, thread_id: str, config: dict) -> None:
-        content_placeholder = st.empty()
-        criticality_text = ""
-        criticality_placeholder = None
-        streaming_buffers: dict[str, str] = {}
-        streaming_placeholders: dict[str, Any] = {}
+        buffers: dict[str, Any] = {}
 
         try:
             chunks = self.client.runs.stream(  # type: ignore[call-overload]
@@ -188,95 +307,24 @@ class WebInterface:
                     logger.debug("Streaming event: %s", chunk)
 
                 if chunk.event == "checkpoints":
-                    next_nodes = chunk.data.get("next", [])
-                    if next_nodes:
-                        node = next_nodes[0]
-                        icon = self._node_icon(node)
-                        label = node.replace("_", " ").title()
-                        st.toast(f"\u23f3 Processing **{label}**...")
+                    self._on_checkpoint(chunk.data)
 
                 elif chunk.event == "messages":
                     message_chunk, metadata = chunk.data
                     node = metadata.get("langgraph_node")
                     if not node:
                         continue
-
                     content = message_chunk.get("content", "")
                     if not content:
                         continue
-
-                    if node == "criticality_check":
-                        criticality_text += content
-                        if criticality_placeholder is None:
-                            content_placeholder.empty()
-                            criticality_placeholder = (
-                                st.chat_message("assistant", avatar="\U0001f9e0")
-                                .empty()
-                            )
-                        criticality_placeholder.markdown(
-                            f"**Criticality Analysis**\n\n{criticality_text}"
-                        )
-                    else:
-                        if node not in streaming_buffers:
-                            streaming_buffers[node] = ""
-                            streaming_placeholders[node] = st.empty()
-                        streaming_buffers[node] += content
-                        streaming_placeholders[node].markdown(
-                            streaming_buffers[node]
-                        )
+                    self._dispatch_stream(node, content, buffers)
 
                 elif chunk.event == "updates":
                     for node_name, output in chunk.data.items():
-                        if node_name == "criticality_check":
-                            ct = (
-                                output.get("context", {}).get("criticality", "")
-                            )
-                            if not ct:
-                                continue
-                            criticality_text = ct
-                            if criticality_placeholder is None:
-                                content_placeholder.empty()
-                                criticality_placeholder = (
-                                    st.chat_message("assistant", avatar="\U0001f9e0")
-                                    .empty()
-                                )
-                            criticality_placeholder.markdown(
-                                f"**Criticality Analysis**\n\n{ct}"
-                            )
-                            continue
+                        self._dispatch_complete(node_name, output, buffers)
 
-                        if "context" in output:
-                            if node_name in streaming_placeholders:
-                                streaming_placeholders[node_name].empty()
-                                del streaming_placeholders[node_name]
-                            if node_name in streaming_buffers:
-                                del streaming_buffers[node_name]
-                            continue
-
-                        if node_name in streaming_placeholders:
-                            buf = streaming_buffers.get(node_name, "")
-                            if buf:
-                                icon = self._node_icon(node_name)
-                                label = node_name.replace("_", " ").title()
-                                display = f"{icon} **{label}**\n\n{buf}"
-                                st.chat_message("assistant").markdown(display)
-                                st.session_state.messages.append({
-                                    "role": "assistant",
-                                    "content": buf,
-                                    "node": node_name,
-                                })
-                            streaming_placeholders[node_name].empty()
-                            del streaming_placeholders[node_name]
-                            if node_name in streaming_buffers:
-                                del streaming_buffers[node_name]
-
-            if criticality_text and criticality_placeholder is None:
-                with st.chat_message("assistant", avatar="\U0001f9e0"):
-                    st.markdown(
-                        f"**Criticality Analysis**\n\n{criticality_text}"
-                    )
-
-            if criticality_text:
+            criticality = buffers.get("_criticality")
+            if criticality:
                 insert_pos = len(st.session_state.messages)
                 for i in range(len(st.session_state.messages) - 1, -1, -1):
                     if st.session_state.messages[i]["role"] == "user":
@@ -284,14 +332,11 @@ class WebInterface:
                         break
                 st.session_state.messages.insert(insert_pos, {
                     "role": "criticality",
-                    "content": criticality_text,
+                    "content": criticality,
                 })
-
-            content_placeholder.empty()
 
         except Exception:
             logger.exception("Erro na stream da API LangGraph")
-            content_placeholder.empty()
             st.error(
                 "\u26a0\ufe0f Error processing your message. Please try again later."
             )
