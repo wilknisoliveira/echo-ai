@@ -34,10 +34,10 @@ SUMMARIZE = "summarize"
 LEAVE_SKILL = "leave_skill"
 
 summarization_node = create_summarization_node(
-    model=LLMModel(max_tokens=3000).llm,
-    max_tokens=10000,
-    max_summary_tokens=3000,
-    max_tokens_before_summary=9500,
+    model=LLMModel(max_tokens=2000).llm,
+    max_tokens=16000,
+    max_summary_tokens=2000,
+    max_tokens_before_summary=13000,
     summary_guide=DEFAULT_SUMMARIZATION_GUIDE,
 )
 
@@ -67,9 +67,7 @@ def _route_after_review(state: State) -> str:
     if reasoning.decision == "finish":
         return END
 
-    raise ValueError(
-        f"Unknown reasoning decision: {reasoning.decision!r}"
-    )
+    raise ValueError(f"Unknown reasoning decision: {reasoning.decision!r}")
 
 
 def _prepare_tool_calls_inner(state: State) -> dict:
@@ -79,11 +77,13 @@ def _prepare_tool_calls_inner(state: State) -> dict:
 
     tool_calls: list[dict[str, Any]] = []
     for tc in reasoning_output.tool_calls:
-        tool_calls.append({
-            "name": tc.name,
-            "args": tc.args,
-            "id": tc.id or str(uuid.uuid4()),
-        })
+        tool_calls.append(
+            {
+                "name": tc.name,
+                "args": tc.args,
+                "id": tc.id or str(uuid.uuid4()),
+            }
+        )
 
     return {"messages": [AIMessage(content="", tool_calls=tool_calls)]}
 
@@ -92,7 +92,9 @@ builder = StateGraph(State)
 
 builder.add_node(ATTACH_TIMESTAMPS, attach_timestamps)
 builder.add_node(SELECT_MESSAGES_BEFORE_SUMMARIZE, select_messages_before_summarize)
-builder.add_node(SUMMARIZE, lambda state: retry_llm_call(lambda: summarization_node.invoke(state)))
+builder.add_node(
+    SUMMARIZE, lambda state: retry_llm_call(lambda: summarization_node.invoke(state))
+)
 builder.add_node(SELECT_MESSAGES_AFTER_SUMMARIZE, select_messages_after_summarize)
 builder.add_node("reset_iteration_count", _reset_iteration_count)
 builder.add_node(CRITICALITY_CHECK, criticality_assessment)
