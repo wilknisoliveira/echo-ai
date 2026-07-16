@@ -64,6 +64,8 @@ class WebInterface:
             return "reasoning"
         if content.startswith("[Skeptic Challenge]"):
             return "skeptic"
+        if content.startswith("[Criticality Assessment]"):
+            return "criticality_check"
         return None
 
     def _list_threads(self) -> list[dict[str, Any]]:
@@ -124,10 +126,8 @@ class WebInterface:
             values = state.get("values")
             if isinstance(values, dict):
                 messages = values.get("messages", [])
-                context = values.get("context", {})
             else:
                 messages = values if isinstance(values, list) else []
-                context = {}
         except Exception:
             logger.warning(
                 "Could not fetch thread history for %s", st.session_state.thread_id
@@ -159,16 +159,6 @@ class WebInterface:
                     entry["node"] = node
             st.session_state.messages.append(entry)
 
-        criticality = context.get("criticality", "")
-        if criticality:
-            for i in range(len(st.session_state.messages) - 1, -1, -1):
-                if st.session_state.messages[i]["role"] == "user":
-                    st.session_state.messages.insert(i + 1, {
-                        "role": "criticality",
-                        "content": criticality,
-                    })
-                    break
-
     VISIBLE_NODES = frozenset({"criticality_check", "reasoning", "skeptic"})
 
     def _on_checkpoint(self, data: dict) -> None:
@@ -178,19 +168,6 @@ class WebInterface:
             label = node.replace("_", " ").title()
             st.toast(f"\u23f3 Processing **{label}**...")
 
-    def _stream_criticality(self, content: str, buffers: dict) -> None:
-        buffers["_criticality"] = buffers.get("_criticality", "") + content
-        if "_criticality_ph" not in buffers:
-            buffers["_criticality_ph"] = (
-                st.chat_message("assistant", avatar="\U0001f9e0").empty()
-            )
-        buffers["_criticality_ph"].markdown(
-            f"**Criticality Analysis**\n\n{buffers['_criticality']}"
-        )
-
-    def _stream_reasoning(self, content: str, buffers: dict) -> None:
-        pass
-
     def _stream_skeptic(self, content: str, buffers: dict) -> None:
         if "skeptic" not in buffers:
             buffers["skeptic"] = ""
@@ -199,19 +176,34 @@ class WebInterface:
         buffers["skeptic_ph"].markdown(buffers["skeptic"])
 
     def _dispatch_stream(self, node: str, content: str, buffers: dict) -> None:
-        if node == "criticality_check":
-            self._stream_criticality(content, buffers)
-        elif node == "reasoning":
-            self._stream_reasoning(content, buffers)
-        elif node == "skeptic":
+        if node == "skeptic":
             self._stream_skeptic(content, buffers)
 
     def _complete_criticality(self, output: dict, buffers: dict) -> None:
-        ct = output.get("context", {}).get("criticality", "")
-        if ct:
-            buffers["_criticality"] = ct
-        if "_criticality_ph" in buffers:
-            del buffers["_criticality_ph"]
+        msg_id = None
+        content = ""
+        for msg in output.get("messages", []):
+            if msg.get("type") != "ai":
+                continue
+            content = msg.get("content", "")
+            msg_id = msg.get("id")
+            break
+        if not content:
+            return
+        if msg_id and any(
+            m.get("id") == msg_id for m in st.session_state.messages
+        ):
+            return
+        entry: dict[str, Any] = {
+            "role": "assistant",
+            "content": content,
+            "node": "criticality_check",
+        }
+        if msg_id:
+            entry["id"] = msg_id
+        st.session_state.messages.append(entry)
+        with st.chat_message("assistant", avatar="\U0001f9e0"):
+            st.markdown(f"**Criticality Analysis**\n\n{content}")
 
     def _complete_reasoning(self, output: dict, buffers: dict) -> None:
         for msg in output.get("messages", []):
@@ -257,23 +249,30 @@ class WebInterface:
                 del buffers["skeptic_ph"]
             buffers.pop("skeptic", None)
             return
+        seen_ids = {m.get("id") for m in st.session_state.messages if m.get("id")}
         for msg in output.get("messages", []):
             if msg.get("type") != "ai":
                 continue
             content = msg.get("content", "")
             if not content:
                 continue
+            msg_id = msg.get("id")
+            if msg_id and msg_id in seen_ids:
+                continue
             if "skeptic_ph" in buffers:
                 buffers["skeptic_ph"].empty()
                 del buffers["skeptic_ph"]
             buffers.pop("skeptic", None)
-            with st.chat_message("assistant", avatar="\U0001f50d"):
-                st.markdown(f"**Skeptic Review**\n\n{content}")
-            st.session_state.messages.append({
+            entry: dict[str, Any] = {
                 "role": "assistant",
                 "content": content,
                 "node": "skeptic",
-            })
+            }
+            if msg_id:
+                entry["id"] = msg_id
+            with st.chat_message("assistant", avatar="\U0001f50d"):
+                st.markdown(f"**Skeptic Review**\n\n{content}")
+            st.session_state.messages.append(entry)
 
     def _dispatch_complete(self, node_name: str, output: dict, buffers: dict) -> None:
         if node_name == "criticality_check":
@@ -322,18 +321,6 @@ class WebInterface:
                 elif chunk.event == "updates":
                     for node_name, output in chunk.data.items():
                         self._dispatch_complete(node_name, output, buffers)
-
-            criticality = buffers.get("_criticality")
-            if criticality:
-                insert_pos = len(st.session_state.messages)
-                for i in range(len(st.session_state.messages) - 1, -1, -1):
-                    if st.session_state.messages[i]["role"] == "user":
-                        insert_pos = i + 1
-                        break
-                st.session_state.messages.insert(insert_pos, {
-                    "role": "criticality",
-                    "content": criticality,
-                })
 
         except Exception:
             logger.exception("Erro na stream da API LangGraph")
@@ -422,21 +409,20 @@ class WebInterface:
                 self._load_history()
 
             for message in st.session_state.messages:
-                if message["role"] == "criticality":
-                    with st.chat_message("assistant", avatar="\U0001f9e0"):
-                        st.markdown(
-                            f"**Criticality Analysis**\n\n{message['content']}"
-                        )
-                else:
-                    with st.chat_message(message["role"]):
-                        if "node" in message:
+                with st.chat_message(message["role"]):
+                    if "node" in message:
+                        if message["node"] == "criticality_check":
+                            st.markdown(
+                                f"**Criticality Analysis**\n\n{message['content']}"
+                            )
+                        else:
                             icon = self._node_icon(message["node"])
                             label = message["node"].replace("_", " ").title()
                             st.markdown(
                                 f"{icon} **{label}**\n\n{message['content']}"
                             )
-                        else:
-                            st.markdown(message["content"])
+                    else:
+                        st.markdown(message["content"])
 
             if prompt := st.chat_input("What is up?"):
                 with st.chat_message("user"):

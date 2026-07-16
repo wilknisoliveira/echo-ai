@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 
+from main_agent.utils.diagnostics import save_diagnostic, unwrap_properties
 from main_agent.utils.llm_model import LLMModel
 from main_agent.utils.retry import retry_llm_call
 from main_agent.utils.state import State
@@ -55,10 +56,6 @@ Your role is to assist the user by analyzing the situation, determining what inf
 
 {tool_descriptions}
 
-## Context
-
-{criticality}
-
 {memories_current_time}
 
 ## Rules
@@ -76,8 +73,6 @@ FINAL_ITERATION_MESSAGE = "[SYSTEM] This is your final reasoning iteration. You 
 
 primary_assistant_tools = [TavilySearchResults(max_results=1), upsert_memory]
 
-llm = LLMModel(model_env_key="LLM_STRUCTURED_MODEL").llm
-
 
 def _build_reasoning_prompt(
     state: State,
@@ -86,7 +81,6 @@ def _build_reasoning_prompt(
     store: BaseStore,
     iteration_count: int,
 ) -> list[SystemMessage | Any]:
-    criticality = state.get("context", {}).get("criticality", "")
     memories = prepare_memories(state, config, store=store)
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -94,17 +88,26 @@ def _build_reasoning_prompt(
         f"- {tool.name}: {tool.description}" for tool in primary_assistant_tools
     )
 
-    criticality_block = (
-        f"\n## Criticality Analysis\n{criticality}\n" if criticality else ""
-    )
-
     memories_block = f"{memories}" if memories else ""
 
     formatted_prompt = REASONING_SYSTEM_PROMPT.format(
         tool_descriptions=tool_descriptions,
-        criticality=criticality_block,
         memories_current_time=memories_block + f"\nCurrent time: {current_time}.",
     )
+
+    if iteration_count > 1:
+        prev_skeptic = state.get("skeptic_output")
+        if prev_skeptic and not prev_skeptic.approved and prev_skeptic.feedback:
+            feedback_lines = "\n".join(
+                f"{i}. {fb}" for i, fb in enumerate(prev_skeptic.feedback, 1)
+            )
+            formatted_prompt += (
+                "\n\n## Handling Skeptic Feedback\n\n"
+                "The previous skeptic review identified these issues with your last reasoning:\n"
+                f"{feedback_lines}\n\n"
+                "You MUST address each issue directly. Rework your reasoning and plan "
+                "to resolve every point. Be specific — vague acknowledgments will be rejected."
+            )
 
     messages: list[Any] = [SystemMessage(content=formatted_prompt)]
     messages.extend(state["messages"])
@@ -144,9 +147,11 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
         state, config, store=store, iteration_count=iteration_count
     )
 
+    llm = LLMModel(model_env_key="LLM_STRUCTURED_MODEL").llm
+
     try:
         raw_result = retry_llm_call(
-            lambda: llm.with_structured_output(ReasoningOutput, method="json_mode").invoke(prompt_messages)
+            lambda: llm.with_structured_output(ReasoningOutput, method="json_schema", include_raw=True).invoke(prompt_messages)
         )
     except Exception as e:
         logger.error(
@@ -183,7 +188,61 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
                 ),
             )
         else:
-            result = cast(ReasoningOutput, raw_result)
+            parsing_error = raw_result.get("parsing_error")
+            if parsing_error:
+                raw_msg = raw_result.get("raw")
+                raw_content = raw_msg.content if raw_msg else "N/A"
+                save_diagnostic(
+                    "reasoning",
+                    raw_content,
+                    iteration_count,
+                    str(parsing_error),
+                )
+
+            parsed = raw_result.get("parsed")
+            if parsed is not None:
+                result = cast(ReasoningOutput, parsed)
+            else:
+                raw_msg = raw_result.get("raw")
+                extracted = (
+                    unwrap_properties(raw_msg.content)
+                    if raw_msg
+                    else None
+                )
+                if extracted is not None:
+                    try:
+                        result = ReasoningOutput.model_validate(extracted)
+                        logger.info(
+                            "Reasoning: unwrapped properties envelope (iteration %d/%d).",
+                            iteration_count,
+                            MAX_ITERATIONS,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Reasoning: unwrap succeeded but validation failed "
+                            "(iteration %d/%d): %s",
+                            iteration_count,
+                            MAX_ITERATIONS,
+                            e,
+                        )
+                        extracted = None
+
+                if extracted is None:
+                    logger.error(
+                        "Reasoning node: structured output parsing failed "
+                        "(iteration %d/%d). Using fallback.",
+                        iteration_count,
+                        MAX_ITERATIONS,
+                    )
+                    result = ReasoningOutput(
+                        reasoning="The model encountered an error while processing.",
+                        plan="N/A",
+                        decision="finish",
+                        final_answer=(
+                            "I'm sorry, I wasn't able to process that request. "
+                            "Please try rephrasing or ask me something else."
+                        ),
+                    )
 
     if iteration_count >= MAX_ITERATIONS and result.decision == "call_tools":
         result.decision = "finish"
@@ -193,7 +252,23 @@ def reasoning_node(state: State, config: RunnableConfig, *, store: BaseStore) ->
                 "Here's what I've determined so far."
             )
 
-    _validate_reasoning_output(result, iteration_count)
+    try:
+        _validate_reasoning_output(result, iteration_count)
+    except ValueError:
+        logger.warning(
+            "Reasoning output validation failed (iteration %d/%d), using fallback.",
+            iteration_count,
+            MAX_ITERATIONS,
+        )
+        result = ReasoningOutput(
+            reasoning=result.reasoning or "The model produced an inconsistent output.",
+            plan="N/A",
+            decision="finish",
+            final_answer=(
+                "I'm sorry, I wasn't able to process that request. "
+                "Please try rephrasing or ask me something else."
+            ),
+        )
 
     messages: list[Any] = [
         AIMessage(

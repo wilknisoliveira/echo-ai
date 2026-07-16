@@ -53,6 +53,10 @@ Execute with development mode:
 langgraph dev
 ```
 
+### Environment Modes
+
+Set `ECHO_ENV="development"` in `.env` to enable raw LLM diagnostics (saved to `diagnostics/`). Omit or set to `"production"` to disable.
+
 To run the agent with docker, execute the following command:
 
 ```bash
